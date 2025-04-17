@@ -18,7 +18,7 @@ export default function Home() {
             Welcome back.
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email and password to authenticate.
+            Enter your phone number and password to authenticate.
           </p>
         </div>
         {/*

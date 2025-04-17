@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-
 import { cn } from "@/lib/utils";
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -21,66 +19,112 @@ import {
 } from "@/components/ui/form";
 import { toast } from "@/hooks/use-toast";
 import { isUsernameAvailable } from "@/services/username-availability";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile as updateFirebaseProfile,
+  signOut,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  PhoneAuthProvider,
+  signInWithCredential,
+  sendEmailVerification,
+} from "firebase/auth";
+import { createProfile, updateProfile as updateFirestoreProfile } from "@/services/profile-service";
+import { auth, db } from "@/lib/firebase";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { doc, setDoc, updateDoc, serverTimestamp, setLogLevel, connectFirestoreEmulator } from "firebase/firestore";
 
-const formSchema = z
-  .object({
-    email: z.string().email({
-      message: "Please enter a valid email address.",
-    }),
-    password: z
-      .string()
-      .min(8, {
-        message: "Password must be at least 8 characters.",
-      })
-      .max(100)
-      .refine((password) => /[a-z]/.test(password), {
-        message: "Password must contain at least one lowercase letter.",
-      })
-      .refine((password) => /[A-Z]/.test(password), {
-        message: "Password must contain at least one uppercase letter.",
-      })
-      .refine((password) => /[0-9]/.test(password), {
-        message: "Password must contain at least one number.",
-      })
-      .refine((password) => /[^a-zA-Z0-9\s]/.test(password), {
-        message: "Password must contain at least one special character.",
-      }),
-    passwordConfirm: z.string(),
-    code: z.string().min(6, {
-      message: "Verification code must be 6 characters",
-    }),
-    username: z
-      .string()
-      .min(3, {
-        message: "Username must be at least 3 characters.",
-      })
-      .max(20)
-      .regex(/^[a-zA-Z0-9_]+$/, {
-        message:
-          "Username must contain only letters, numbers, and underscores.",
-      }),
-  })
-  .refine((data) => data.password === data.passwordConfirm, {
-    message: "Passwords do not match.",
-    path: ["passwordConfirm"],
-  });
+// Country codes data
+const countryCodes = [
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "GB", flag: "🇬🇧" },
+  { code: "+33", country: "FR", flag: "🇫🇷" },
+  { code: "+49", country: "DE", flag: "🇩🇪" },
+  { code: "+81", country: "JP", flag: "🇯🇵" },
+  { code: "+86", country: "CN", flag: "🇨🇳" },
+  { code: "+91", country: "IN", flag: "🇮🇳" },
+  { code: "+61", country: "AU", flag: "🇦🇺" },
+  { code: "+55", country: "BR", flag: "🇧🇷" },
+  { code: "+7", country: "RU", flag: "🇷🇺" },
+  // Add more country codes as needed
+];
+
+const formSchema = z.object({
+  phone: z.string().min(10),
+  username: z.string().min(3),
+  countryCode: z.string(),
+  password: z.string().min(8),
+  passwordConfirm: z.string(),
+  code: z.string().optional()
+}).refine((data) => data.password === data.passwordConfirm, {
+  message: "Passwords don't match",
+  path: ["passwordConfirm"],
+});
+
+const formatPhoneNumber = (value: string, countryCode: string) => {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, '');
+  
+  // Format based on country code
+  switch (countryCode) {
+    case '+1': // US/Canada format: XXX-XXX-XXXX
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+    case '+44': // UK format: XXXX XXXXXX
+      if (digits.length <= 4) return digits;
+      return `${digits.slice(0, 4)} ${digits.slice(4, 10)}`;
+    default: // Default format: XXX-XXX-XXXX
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }
+};
+
+const getPhoneNumberPlaceholder = (countryCode: string) => {
+  switch (countryCode) {
+    case '+1': return '555-555-5555';
+    case '+44': return '7911 123456';
+    default: return '555-555-5555';
+  }
+};
 
 const SignUp = () => {
-  const [stage, setStage] = useState<"email" | "code" | "username">("email");
+  const [stage, setStage] = useState<"phone" | "code" | "username">("phone");
+  const [isLoading, setIsLoading] = useState(false);
+  const [verificationId, setVerificationId] = useState<string>("");
   const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      phone: "",
+      countryCode: "+1", // Default to US
       password: "",
       passwordConfirm: "",
       code: "",
       username: "",
     },
+    mode: "onChange",
   });
 
-  const { isLoading } = form.formState;
-  const passwordValue = form.watch("password");
+  // Add this useEffect to log form state changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      if (name) {
+        console.log(`Field ${name} changed:`, value[name]);
+      }
+      console.log("Form state:", form.formState);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Password validation states
   const [hasLowercase, setHasLowercase] = useState(false);
@@ -88,6 +132,9 @@ const SignUp = () => {
   const [hasNumber, setHasNumber] = useState(false);
   const [hasSpecialChar, setHasSpecialChar] = useState(false);
   const [isMinLength, setIsMinLength] = useState(false);
+
+  // Get the current password value from the form
+  const passwordValue = form.watch("password");
 
   // Update validation states when password changes
   useEffect(() => {
@@ -98,53 +145,202 @@ const SignUp = () => {
     setIsMinLength(passwordValue.length >= 8);
   }, [passwordValue]);
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  // Initialize reCAPTCHA verifier
+  useEffect(() => {
+    if (stage === "phone" && auth) {
+      try {
+        console.log("Setting up reCAPTCHA...");
+        // Clear any existing verifier
+        if ((window as any).recaptchaVerifier) {
+          try {
+            (window as any).recaptchaVerifier.clear();
+          } catch (e) {
+            console.warn("recaptcha already cleared:", e);
+          }
+          (window as any).recaptchaVerifier = undefined;
+        }
+        
+        // Create an invisible reCAPTCHA verifier
+        const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: (response: any) => {
+            console.log("reCAPTCHA verified successfully", response);
+          },
+          'expired-callback': () => {
+            console.log("reCAPTCHA expired");
+            toast({
+              title: "reCAPTCHA Expired",
+              description: "Please try again.",
+              variant: "destructive",
+            });
+          }
+        });
+
+        // Store the verifier
+        (window as any).recaptchaVerifier = recaptchaVerifier;
+        console.log("reCAPTCHA setup complete");
+      } catch (error) {
+        console.error("Error setting up reCAPTCHA:", error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize reCAPTCHA. Please refresh the page and try again.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch (e) {
+          console.warn("recaptcha already cleared:", e);
+        }
+        // Remove it so we don't clear twice
+        (window as any).recaptchaVerifier = undefined;
+      }
+    };
+  }, [stage, auth]);
+
+  // Enable debug logging
+  useEffect(() => {
+    setLogLevel("debug");
+    
+    // Check emulator connection
+    if (process.env.NODE_ENV === "development" && db) {
+      console.log("🚨 connecting to emulator");
+      connectFirestoreEmulator(db, "localhost", 8080);
+    }
+
+    // Run smoke test
+    (async () => {
+      if (!db) {
+        console.error("🔥 Firestore not initialized");
+        return;
+      }
+      try {
+        await setDoc(doc(db, "smokeTest", "ping"), { pong: true });
+        console.log("✅ smoke test write succeeded");
+      } catch (e: any) {
+        console.error("🔥 smoke test write FAILED:", e.code, e.message);
+      }
+    })();
+  }, []);
+
+  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      // Simulate API call - replace with actual Firebase authentication logic
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (stage === "email") {
-        // Simulate sending verification email
-        toast({
-          title: "Verification email sent.",
-          description: "Please check your inbox.",
-        });
-        setStage("code");
-        return;
-      }
-
-      if (stage === "code") {
-        // Simulate verifying code
-        toast({
-          title: "Code verified.",
-          description: "Please create a username.",
-        });
-        setStage("username");
-        return;
-      }
-
-      if (stage === "username") {
-        const available = await isUsernameAvailable(values.username);
-        if (!available) {
-          form.setError("username", {
-            type: "manual",
-            message: "This username is already taken.",
-          });
-          return;
+      if (stage === "phone") {
+        if (!auth) {
+          throw new Error("Authentication service not initialized");
         }
 
-        toast({
-          title: "Account created.",
-          description: "You have successfully created an account.",
+        // Store the phone number and password temporarily
+        localStorage.setItem('pendingPhone', `${data.countryCode}${data.phone}`);
+        localStorage.setItem('pendingPassword', data.password);
+
+        // Create a temporary user to send verification
+        const phoneNumber = `${data.countryCode}${data.phone}`;
+        const recaptchaVerifier = (window as any).recaptchaVerifier;
+        
+        if (!recaptchaVerifier) {
+          throw new Error("reCAPTCHA not initialized");
+        }
+
+        const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+        setVerificationId(confirmationResult.verificationId);
+        setStage("code");
+      } else if (stage === "code") {
+        if (!auth || !verificationId || !data.code) {
+          throw new Error("Authentication not initialized, verification ID missing, or code not provided");
+        }
+
+        // Verify the phone number
+        const credential = PhoneAuthProvider.credential(verificationId, data.code);
+        const userCredential = await signInWithCredential(auth, credential);
+        const user = userCredential.user;
+        
+        if (!user) {
+          throw new Error("Failed to create user");
+        }
+        
+        // Create the user profile in Firestore with incremental writes
+        try {
+          if (!db) {
+            throw new Error("Firestore is not initialized");
+          }
+          
+          // Step 1: Basic write with just uid
+          console.log("Step 1: Writing basic profile with uid");
+          const userDoc = doc(db, 'profiles', user.uid);
+          await setDoc(userDoc, {
+            uid: user.uid
+          });
+          
+          // Step 2: Add phoneNumber
+          console.log("Step 2: Adding phoneNumber");
+          await setDoc(userDoc, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber || ''
+          });
+          
+          // Step 3: Add isVerified
+          console.log("Step 3: Adding isVerified");
+          await setDoc(userDoc, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber || '',
+            isVerified: true
+          });
+          
+          // Step 4: Add timestamps
+          console.log("Step 4: Adding timestamps");
+          await setDoc(userDoc, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber || '',
+            isVerified: true,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          
+          console.log("✅ Profile created successfully");
+          setStage("username");
+        } catch (firestoreError) {
+          console.error("Error creating profile:", firestoreError);
+          // If profile creation fails, delete the user
+          await user.delete();
+          throw new Error("Failed to create user profile");
+        }
+      } else if (stage === "username") {
+        const user = auth?.currentUser;
+        if (!user) {
+          throw new Error("No authenticated user found");
+        }
+
+        // Update Firebase profile with username
+        await updateFirebaseProfile(user, {
+          displayName: data.username
         });
+
+        // Update Firestore profile with username
+        if (!db) {
+          throw new Error("Firestore is not initialized");
+        }
+        
+        const userDoc = doc(db, 'profiles', user.uid);
+        await updateDoc(userDoc, {
+          username: data.username,
+          updatedAt: serverTimestamp()
+        });
+
+        // Redirect to home page
         router.push("/");
-        return;
       }
     } catch (error) {
+      console.error("Error during sign up:", error);
       toast({
-        title: "Something went wrong.",
-        description: "There was an error creating your account.",
-        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
       });
     }
   };
@@ -158,26 +354,104 @@ const SignUp = () => {
             Create an account
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email and password to create an account.
+            {stage === "phone" && "Enter your phone number and password to create an account."}
+            {stage === "code" && "Please verify your phone number to continue."}
+            {stage === "username" && "Choose a username to complete your account setup."}
           </p>
         </div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {stage === "email" && (
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              console.log("Form submit event triggered");
+              console.log("Form state:", form.formState);
+              console.log("Form values:", form.getValues());
+              console.log("Form errors:", form.formState.errors);
+              
+              if (form.formState.isSubmitting) {
+                console.log("Form is already submitting");
+                return;
+              }
+              
+              try {
+                const values = form.getValues();
+                console.log("Submitting form with values:", values);
+                handleSubmit(values);
+              } catch (error) {
+                console.error("Error in form submission:", error);
+              }
+            }} 
+            className="space-y-4"
+          >
+            {stage === "phone" && (
               <>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="shadcn@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex space-x-2">
+                  <FormField
+                    control={form.control}
+                    name="countryCode"
+                    render={({ field }) => (
+                      <FormItem className="w-[100px]">
+                        <FormLabel>Code</FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          console.log("Country code changed:", value);
+                        }} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Code" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {countryCodes.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.flag} {country.code}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => {
+                      const countryCode = form.watch("countryCode");
+                      return (
+                        <FormItem className="flex-1">
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder={getPhoneNumberPlaceholder(countryCode)}
+                              {...field}
+                              value={formatPhoneNumber(field.value, countryCode)}
+                              onChange={(e) => {
+                                // Only allow digits
+                                const digits = e.target.value.replace(/\D/g, '');
+                                // Limit length based on country
+                                const maxLength = countryCode === '+1' ? 10 : 10;
+                                if (digits.length <= maxLength) {
+                                  field.onChange(digits);
+                                  console.log("Phone number changed:", digits);
+                                }
+                              }}
+                              onKeyPress={(e) => {
+                                // Only allow numbers
+                                if (!/^\d$/.test(e.key)) {
+                                  e.preventDefault();
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </div>
+                {/* Invisible reCAPTCHA container */}
+                <div id="recaptcha-container" className="sr-only"></div>
                 <FormField
                   control={form.control}
                   name="password"
@@ -185,7 +459,14 @@ const SignUp = () => {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" {...field} />
+                        <Input 
+                          type="password" 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            console.log("Password changed:", e.target.value);
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -245,7 +526,14 @@ const SignUp = () => {
                     <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <Input type="password" {...field} />
+                        <Input 
+                          type="password" 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            console.log("Password confirm changed:", e.target.value);
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -286,12 +574,66 @@ const SignUp = () => {
               />
             )}
 
-            <Button disabled={isLoading}>
+            <Button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full"
+            >
               {isLoading && (
                 <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Continue
+              {stage === "phone" && "Create Account"}
+              {stage === "code" && "Verify Phone"}
+              {stage === "username" && "Complete Setup"}
             </Button>
+
+            {stage === "code" && (
+              <div className="text-center text-sm text-muted-foreground">
+                <p>Haven't received the verification code?</p>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto font-normal"
+                  onClick={async () => {
+                    const pendingPhone = localStorage.getItem('pendingPhone');
+                    if (!pendingPhone || !auth) {
+                      toast({
+                        title: "Error",
+                        description: "Session expired. Please start over.",
+                        variant: "destructive",
+                      });
+                      setStage("phone");
+                      return;
+                    }
+
+                    try {
+                      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                        'size': 'normal',
+                        'callback': () => {
+                          console.log("reCAPTCHA verified");
+                        }
+                      });
+
+                      const confirmationResult = await signInWithPhoneNumber(auth, pendingPhone, recaptchaVerifier);
+                      setVerificationId(confirmationResult.verificationId);
+                      
+                      toast({
+                        title: "Verification code resent",
+                        description: "Please enter the new verification code.",
+                      });
+                    } catch (error) {
+                      console.error("Error resending verification code:", error);
+                      toast({
+                        title: "Error",
+                        description: "Failed to resend verification code. Please try again later.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Click here to resend
+                </Button>
+              </div>
+            )}
           </form>
         </Form>
       </div>
