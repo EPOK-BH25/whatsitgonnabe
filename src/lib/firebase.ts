@@ -3,6 +3,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
 import { connectAuthEmulator } from 'firebase/auth';
 
 // Your web app's Firebase configuration
@@ -19,6 +20,7 @@ const firebaseConfig = {
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 if (typeof window !== 'undefined') {
   try {
@@ -39,11 +41,17 @@ if (typeof window !== 'undefined') {
     db = getFirestore(app);
     console.log("Firebase Firestore initialized");
 
+    // Initialize Storage
+    storage = getStorage(app);
+    console.log("Firebase Storage initialized");
+
     // Connect to emulators in development
     if (process.env.NODE_ENV === 'development') {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      connectAuthEmulator(auth, 'http://localhost:9099');
-      console.log("Connected to Firebase emulators");
+      // Comment out emulator connections to use production environment
+      // connectFirestoreEmulator(db, 'localhost', 8080);
+      // connectAuthEmulator(auth, 'http://localhost:9099');
+      // connectStorageEmulator(storage, 'localhost', 9199);
+      console.log("Using production Firebase environment");
     }
   } catch (error) {
     console.error("Error initializing Firebase:", error);
@@ -51,4 +59,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { app, auth, db }; 
+export { app, auth, db, storage }; 

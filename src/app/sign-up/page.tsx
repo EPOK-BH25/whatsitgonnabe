@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { doc, setDoc, updateDoc, serverTimestamp, setLogLevel, connectFirestoreEmulator } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp, setLogLevel, connectFirestoreEmulator, getDoc } from "firebase/firestore";
 
 // Country codes data
 const countryCodes = [
@@ -61,12 +61,7 @@ const formSchema = z.object({
   phone: z.string().min(10),
   username: z.string().min(3),
   countryCode: z.string(),
-  password: z.string().min(8),
-  passwordConfirm: z.string(),
   code: z.string().optional()
-}).refine((data) => data.password === data.passwordConfirm, {
-  message: "Passwords don't match",
-  path: ["passwordConfirm"],
 });
 
 const formatPhoneNumber = (value: string, countryCode: string) => {
@@ -98,7 +93,7 @@ const getPhoneNumberPlaceholder = (countryCode: string) => {
 };
 
 const SignUp = () => {
-  const [stage, setStage] = useState<"phone" | "code" | "username">("phone");
+  const [stage, setStage] = useState<"phone" | "code">("phone");
   const [isLoading, setIsLoading] = useState(false);
   const [verificationId, setVerificationId] = useState<string>("");
   const router = useRouter();
@@ -107,10 +102,8 @@ const SignUp = () => {
     defaultValues: {
       phone: "",
       countryCode: "+1", // Default to US
-      password: "",
-      passwordConfirm: "",
       code: "",
-      username: "",
+      username: "vendor_" + Math.random().toString(36).substring(2, 8), // Generate a random username
     },
     mode: "onChange",
   });
@@ -126,41 +119,24 @@ const SignUp = () => {
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Password validation states
-  const [hasLowercase, setHasLowercase] = useState(false);
-  const [hasUppercase, setHasUppercase] = useState(false);
-  const [hasNumber, setHasNumber] = useState(false);
-  const [hasSpecialChar, setHasSpecialChar] = useState(false);
-  const [isMinLength, setIsMinLength] = useState(false);
-
-  // Get the current password value from the form
-  const passwordValue = form.watch("password");
-
-  // Update validation states when password changes
   useEffect(() => {
-    setHasLowercase(/[a-z]/.test(passwordValue));
-    setHasUppercase(/[A-Z]/.test(passwordValue));
-    setHasNumber(/[0-9]/.test(passwordValue));
-    setHasSpecialChar(/[^a-zA-Z0-9\s]/.test(passwordValue));
-    setIsMinLength(passwordValue.length >= 8);
-  }, [passwordValue]);
+    if (typeof window === "undefined") return; // ✅ Prevent SSR crash
 
-  // Initialize reCAPTCHA verifier
-  useEffect(() => {
     if (stage === "phone" && auth) {
       try {
         console.log("Setting up reCAPTCHA...");
+
         // Clear any existing verifier
         if ((window as any).recaptchaVerifier) {
           try {
             (window as any).recaptchaVerifier.clear();
           } catch (e) {
-            console.warn("recaptcha already cleared:", e);
+            console.warn("reCAPTCHA already cleared:", e);
           }
           (window as any).recaptchaVerifier = undefined;
         }
-        
-        // Create an invisible reCAPTCHA verifier
+
+        // Create a new invisible reCAPTCHA verifier with auto-verification
         const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: (response: any) => {
@@ -168,40 +144,54 @@ const SignUp = () => {
           },
           'expired-callback': () => {
             console.log("reCAPTCHA expired");
-            toast({
-              title: "reCAPTCHA Expired",
-              description: "Please try again.",
-              variant: "destructive",
-            });
+            // Silently refresh the reCAPTCHA instead of showing an error
+            if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
+              try {
+                (window as any).recaptchaVerifier.clear();
+              } catch (e) {
+                console.warn("reCAPTCHA already cleared:", e);
+              }
+              (window as any).recaptchaVerifier = undefined;
+            }
+            // Re-initialize the reCAPTCHA
+            if (auth) {
+              const newRecaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                size: 'invisible',
+                callback: (response: any) => {
+                  console.log("reCAPTCHA verified successfully", response);
+                },
+                'expired-callback': () => {
+                  console.log("reCAPTCHA expired");
+                }
+              });
+              (window as any).recaptchaVerifier = newRecaptchaVerifier;
+            }
           }
         });
 
-        // Store the verifier
+        // Store it globally
         (window as any).recaptchaVerifier = recaptchaVerifier;
         console.log("reCAPTCHA setup complete");
+
       } catch (error) {
         console.error("Error setting up reCAPTCHA:", error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize reCAPTCHA. Please refresh the page and try again.",
-          variant: "destructive",
-        });
+        // Silently handle the error instead of showing a toast
       }
     }
 
     // Cleanup function
     return () => {
-      if ((window as any).recaptchaVerifier) {
+      if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
         try {
           (window as any).recaptchaVerifier.clear();
         } catch (e) {
-          console.warn("recaptcha already cleared:", e);
+          console.warn("reCAPTCHA already cleared:", e);
         }
-        // Remove it so we don't clear twice
         (window as any).recaptchaVerifier = undefined;
       }
     };
   }, [stage, auth]);
+
 
   // Enable debug logging
   useEffect(() => {
@@ -235,9 +225,8 @@ const SignUp = () => {
           throw new Error("Authentication service not initialized");
         }
 
-        // Store the phone number and password temporarily
+        // Store the phone number temporarily
         localStorage.setItem('pendingPhone', `${data.countryCode}${data.phone}`);
-        localStorage.setItem('pendingPassword', data.password);
 
         // Create a temporary user to send verification
         const phoneNumber = `${data.countryCode}${data.phone}`;
@@ -263,16 +252,37 @@ const SignUp = () => {
         if (!user) {
           throw new Error("Failed to create user");
         }
-        
-        // Create the user profile in Firestore with incremental writes
-        try {
-          if (!db) {
-            throw new Error("Firestore is not initialized");
-          }
+
+        // Check if user already exists in Firestore
+        if (!db) {
+          throw new Error("Firestore is not initialized");
+        }
+
+        const userDoc = doc(db, 'profiles', user.uid);
+        const userSnap = await getDoc(userDoc);
+
+        if (userSnap.exists()) {
+          // User exists, just log them in and redirect to their vendor dashboard
+          console.log("User already exists, logging in...");
           
+          // Get the vendor document
+          const vendorDoc = doc(db, 'vendor', user.uid);
+          const vendorSnap = await getDoc(vendorDoc);
+
+          if (vendorSnap.exists()) {
+            // User has a vendor profile, redirect to dashboard
+            router.push(`/vendor/${user.uid}/dashboard`);
+          } else {
+            // User exists but no vendor profile, redirect to setup
+            router.push(`/vendor/${user.uid}/setup`);
+          }
+          return;
+        }
+        
+        // User doesn't exist, create new profile
+        try {
           // Step 1: Basic write with just uid
           console.log("Step 1: Writing basic profile with uid");
-          const userDoc = doc(db, 'profiles', user.uid);
           await setDoc(userDoc, {
             uid: user.uid
           });
@@ -292,48 +302,59 @@ const SignUp = () => {
             isVerified: true
           });
           
-          // Step 4: Add timestamps
-          console.log("Step 4: Adding timestamps");
+          // Step 4: Add timestamps and username
+          console.log("Step 4: Adding timestamps and username");
           await setDoc(userDoc, {
             uid: user.uid,
             phoneNumber: user.phoneNumber || '',
             isVerified: true,
+            username: data.username,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
           
-          console.log("✅ Profile created successfully");
-          setStage("username");
+          // Create vendor document
+          console.log("Creating vendor document");
+          const vendorDoc = doc(db, 'vendor', user.uid);
+          await setDoc(vendorDoc, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber || '',
+            businessName: '',
+            email: '',
+            address: '',
+            offersHome: false,
+            offersDrive: false,
+            paymentOptions: {
+              cash: false,
+              cashapp: false,
+              credit: false,
+              debit: false,
+              paypal: false,
+              tap: false,
+              venmo: false,
+              zelle: false,
+            },
+            images: [],
+            username: data.username,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          
+          console.log("✅ Profile and vendor document created successfully");
+          
+          // Update Firebase profile with username
+          await updateFirebaseProfile(user, {
+            displayName: data.username
+          });
+          
+          // Redirect to vendor setup page
+          router.push(`/vendor/${user.uid}/setup`);
         } catch (firestoreError) {
           console.error("Error creating profile:", firestoreError);
           // If profile creation fails, delete the user
           await user.delete();
           throw new Error("Failed to create user profile");
         }
-      } else if (stage === "username") {
-        const user = auth?.currentUser;
-        if (!user) {
-          throw new Error("No authenticated user found");
-        }
-
-        // Update Firebase profile with username
-        await updateFirebaseProfile(user, {
-          displayName: data.username
-        });
-
-        // Update Firestore profile with username
-        if (!db) {
-          throw new Error("Firestore is not initialized");
-        }
-        
-        const userDoc = doc(db, 'profiles', user.uid);
-        await updateDoc(userDoc, {
-          username: data.username,
-          updatedAt: serverTimestamp()
-        });
-
-        // Redirect to home page
-        router.push("/");
       }
     } catch (error) {
       console.error("Error during sign up:", error);
@@ -354,35 +375,12 @@ const SignUp = () => {
             Create an account
           </h1>
           <p className="text-sm text-muted-foreground">
-            {stage === "phone" && "Enter your phone number and password to create an account."}
+            {stage === "phone" && "Enter your phone number to create an account."}
             {stage === "code" && "Please verify your phone number to continue."}
-            {stage === "username" && "Choose a username to complete your account setup."}
           </p>
         </div>
         <Form {...form}>
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              console.log("Form submit event triggered");
-              console.log("Form state:", form.formState);
-              console.log("Form values:", form.getValues());
-              console.log("Form errors:", form.formState.errors);
-              
-              if (form.formState.isSubmitting) {
-                console.log("Form is already submitting");
-                return;
-              }
-              
-              try {
-                const values = form.getValues();
-                console.log("Submitting form with values:", values);
-                handleSubmit(values);
-              } catch (error) {
-                console.error("Error in form submission:", error);
-              }
-            }} 
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             {stage === "phone" && (
               <>
                 <div className="flex space-x-2">
@@ -392,10 +390,7 @@ const SignUp = () => {
                     render={({ field }) => (
                       <FormItem className="w-[100px]">
                         <FormLabel>Code</FormLabel>
-                        <Select onValueChange={(value) => {
-                          field.onChange(value);
-                          console.log("Country code changed:", value);
-                        }} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Code" />
@@ -427,17 +422,13 @@ const SignUp = () => {
                               {...field}
                               value={formatPhoneNumber(field.value, countryCode)}
                               onChange={(e) => {
-                                // Only allow digits
                                 const digits = e.target.value.replace(/\D/g, '');
-                                // Limit length based on country
                                 const maxLength = countryCode === '+1' ? 10 : 10;
                                 if (digits.length <= maxLength) {
                                   field.onChange(digits);
-                                  console.log("Phone number changed:", digits);
                                 }
                               }}
                               onKeyPress={(e) => {
-                                // Only allow numbers
                                 if (!/^\d$/.test(e.key)) {
                                   e.preventDefault();
                                 }
@@ -452,93 +443,6 @@ const SignUp = () => {
                 </div>
                 {/* Invisible reCAPTCHA container */}
                 <div id="recaptcha-container" className="sr-only"></div>
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="password" 
-                          {...field} 
-                          onChange={(e) => {
-                            field.onChange(e);
-                            console.log("Password changed:", e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Password must contain:</p>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li
-                      className={cn({
-                        "text-green-500": hasLowercase,
-                        "text-muted-foreground": !hasLowercase,
-                      })}
-                    >
-                      At least one lowercase letter
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasUppercase,
-                        "text-muted-foreground": !hasUppercase,
-                      })}
-                    >
-                      At least one uppercase letter
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasNumber,
-                        "text-muted-foreground": !hasNumber,
-                      })}
-                    >
-                      At least one number
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasSpecialChar,
-                        "text-muted-foreground": !hasSpecialChar,
-                      })}
-                    >
-                      At least one special character
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": isMinLength,
-                        "text-muted-foreground": !isMinLength,
-                      })}
-                    >
-                      At least 8 characters
-                    </li>
-                  </ul>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="passwordConfirm"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="password" 
-                          {...field} 
-                          onChange={(e) => {
-                            field.onChange(e);
-                            console.log("Password confirm changed:", e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </>
             )}
 
@@ -558,22 +462,6 @@ const SignUp = () => {
               />
             )}
 
-            {stage === "username" && (
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="sparky_auth" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
             <Button 
               type="submit"
               disabled={isLoading}
@@ -582,9 +470,8 @@ const SignUp = () => {
               {isLoading && (
                 <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {stage === "phone" && "Create Account"}
+              {stage === "phone" && "Continue"}
               {stage === "code" && "Verify Phone"}
-              {stage === "username" && "Complete Setup"}
             </Button>
 
             {stage === "code" && (
@@ -606,12 +493,44 @@ const SignUp = () => {
                     }
 
                     try {
-                      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                        'size': 'normal',
-                        'callback': () => {
-                          console.log("reCAPTCHA verified");
+                      let recaptchaVerifier = (window as any).recaptchaVerifier;
+                      
+                      if (!recaptchaVerifier) {
+                        if (!auth) {
+                          throw new Error("Authentication service not initialized");
                         }
-                      });
+                        recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                          'size': 'invisible',
+                          'callback': () => {
+                            console.log("reCAPTCHA verified");
+                          },
+                          'expired-callback': () => {
+                            console.log("reCAPTCHA expired");
+                            if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
+                              try {
+                                (window as any).recaptchaVerifier.clear();
+                              } catch (e) {
+                                console.warn("reCAPTCHA already cleared:", e);
+                              }
+                              (window as any).recaptchaVerifier = undefined;
+                            }
+                            if (!auth) {
+                              throw new Error("Authentication service not initialized");
+                            }
+                            const newRecaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                              'size': 'invisible',
+                              'callback': () => {
+                                console.log("reCAPTCHA verified");
+                              },
+                              'expired-callback': () => {
+                                console.log("reCAPTCHA expired");
+                              }
+                            });
+                            (window as any).recaptchaVerifier = newRecaptchaVerifier;
+                          }
+                        });
+                        (window as any).recaptchaVerifier = recaptchaVerifier;
+                      }
 
                       const confirmationResult = await signInWithPhoneNumber(auth, pendingPhone, recaptchaVerifier);
                       setVerificationId(confirmationResult.verificationId);
