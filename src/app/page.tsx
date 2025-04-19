@@ -34,6 +34,10 @@ export default function Home() {
             Sign up
           </Link>
         </p>
+        
+        <Link href="/reviews" className="absolute right-4 top-4 md:right-8 md:top-10 flex items-center">
+        Leave a Review <Icons.arrowRight className="h-4 w-4" />
+        </Link>
       </div>
     </div>
   );
