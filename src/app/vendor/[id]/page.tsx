@@ -276,8 +276,6 @@ useEffect(() => {
     e.preventDefault();
     
     if (!isPhoneVerified) {
-      // In a real app, you would implement phone verification here
-      // For now, we'll just simulate it
       setShowVerificationInput(true);
       toast.info("Please verify your phone number");
       return;
@@ -285,6 +283,20 @@ useEffect(() => {
     
     if (!reviewName || !reviewComment) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Check if the reviewer's phone number matches the vendor's phone number
+    const reviewerPhoneNumber = `${reviewCountryCode}${reviewPhone.replace(/\D/g, '')}`;
+    if (vendor && reviewerPhoneNumber === vendor.phoneNumber) {
+      toast.error("You cannot review your own business");
+      setShowReviewForm(false);
+      setIsPhoneVerified(false);
+      setShowVerificationInput(false);
+      setReviewPhone("");
+      setReviewName("");
+      setReviewComment("");
+      setReviewRating(5);
       return;
     }
     
@@ -303,7 +315,8 @@ useEffect(() => {
         star: reviewRating,
         contents: reviewComment,
         createdAt: serverTimestamp(),
-        phoneVerified: true
+        phoneVerified: true,
+        phoneNumber: reviewerPhoneNumber // Store the reviewer's phone number for future reference
       });
       
       // Refresh reviews
@@ -325,6 +338,7 @@ useEffect(() => {
       setShowReviewForm(false);
       setIsPhoneVerified(false);
       setShowVerificationInput(false);
+      setReviewPhone("");
       
       toast.success("Review submitted successfully!");
     } catch (error) {
@@ -335,7 +349,7 @@ useEffect(() => {
     }
   };
   
-  // Update the handlePhoneVerification function
+  // Update the handlePhoneVerification function to check for self-review
   const handlePhoneVerification = async () => {
     if (!reviewPhone) {
       toast.error("Please enter your phone number");
@@ -352,6 +366,20 @@ useEffect(() => {
       
       const appVerifier = (window as any).recaptchaVerifier;
       const fullPhoneNumber = `${reviewCountryCode}${reviewPhone.replace(/\D/g, '')}`;
+      
+      // Check if the phone number matches the vendor's phone number before sending verification
+      if (vendor && fullPhoneNumber === vendor.phoneNumber) {
+        toast.error("You cannot review your own business");
+        setShowReviewForm(false);
+        setIsPhoneVerified(false);
+        setShowVerificationInput(false);
+        setReviewPhone("");
+        setReviewName("");
+        setReviewComment("");
+        setReviewRating(5);
+        return;
+      }
+      
       const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
       (window as any).confirmationResult = confirmationResult;
       setShowVerificationInput(true);
