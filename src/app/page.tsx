@@ -33,6 +33,21 @@ export default function Home() {
   const [filterApplied, setFilterApplied] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 3958.8;
+    const toRad = (deg: number) => deg * (Math.PI / 180);
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const vendorsCache = useRef<Vendor[]>([]);
 
@@ -310,7 +325,6 @@ export default function Home() {
 }, [vendors, selectedCategories, selectedSubTags, searchQuery, filterApplied]);
 
 
-  // Format vendors for display and map
   const displayVendors = useMemo(() => {
     return filteredVendors.map(vendor => {
       // Log the vendor data to check images
@@ -330,13 +344,12 @@ export default function Home() {
       const city = addressParts[1]?.trim() || '';
       const stateZip = addressParts[2]?.trim() || '';
       const state = stateZip.split(' ')[0] || '';
-      const description = `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`;
-  
+
       return {
         ...vendor,
         city,
         state,
-        description
+        description: `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`
       };
     });
   }, [filteredVendors]);
@@ -348,13 +361,6 @@ export default function Home() {
 
   return (
     <div className="h-screen w-screen flex flex-col">
-      <header className="flex justify-between items-center p-4 md:p-6 bg-black text-white">
-        <p className="font-bold text-xl">EPOK</p>
-        <Link href="/sign-up" className="flex items-center">
-          Sign Up <Icons.arrowRight className="h-4 w-4 ml-1" />
-        </Link>
-      </header>
-
       <div className="p-4 flex flex-wrap items-center gap-2">
         <Input
           type="text"

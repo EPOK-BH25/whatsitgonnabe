@@ -4,6 +4,7 @@ module.exports = {
     './src/app/**/*.{ts,tsx}',
     './src/components/**/*.{ts,tsx}',
     './src/pages/**/*.{ts,tsx}',
+    "./**/@material-tailwind/**/*.{html,js,ts,jsx,tsx,mdx}"
   ],
   theme: {
     extend: {
