@@ -24,7 +24,7 @@ const SocialButton = ({ href, children, className }: SocialButtonProps) => {
 
 export function Footer() {
   return (
-    <footer className="bg-[#1D503A] text-white py-8">
+    <footer className="bg-[#1D503A] text-[#FAF5EE] py-8">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
@@ -58,7 +58,7 @@ export function Footer() {
             </div>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t border-white/20 text-center text-sm">
+        <div className="mt-8 pt-8 border-t border-[#FAF5EE]/20 text-center text-sm">
           <p>&copy; {new Date().getFullYear()} WhatsItGonnaBe. All rights reserved.</p>
         </div>
       </div>

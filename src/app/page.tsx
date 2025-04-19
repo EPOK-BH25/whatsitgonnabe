@@ -370,7 +370,7 @@ export default function Home() {
             setSearchQuery(e.target.value);
             setFilterApplied(prev => !prev); // Force re-render
           }}
-          className="w-[80%] md:w-[300px]"
+          className="w-[80%] md:w-[300px] bg-transparent text-[#D2EFE2] border-[#D2EFE2] focus:border-[#D2EFE2] placeholder:text-gray-500"
         />
 
         {categories.map((category) => (
@@ -380,8 +380,8 @@ export default function Home() {
               className={cn(
                 "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
                 selectedCategories.includes(category) || expandedTag === category 
-                  ? "bg-black text-white" 
-                  : "bg-muted text-muted-foreground"
+                  ? "bg-primary text-white" 
+                  : "bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0]"
               )}
             >
               {category}
@@ -395,14 +395,14 @@ export default function Home() {
                   <Badge
                     key={subTag}
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent event bubbling
+                      e.stopPropagation();
                       toggleSubTag(subTag);
                     }}
                     className={cn(
-                      "cursor-pointer select-none px-3 py-1 rounded-full text-xs transition",
+                      "cursor-pointer select-none px-3 py-1 rounded-full text-sm font-medium transition",
                       selectedSubTags.includes(subTag)
-                        ? "bg-black text-white"
-                        : "bg-gray-200 text-gray-700"
+                        ? "bg-primary text-white"
+                        : "bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0]"
                     )}
                   >
                     {subTag}

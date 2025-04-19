@@ -312,13 +312,13 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-navbar text-navbar-foreground">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-navbar text-[#FAF5EE]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex-shrink-0">
-              <Link href="/" className="text-xl font-bold">
-                EPOK
+              <Link href="/" className="text-xl font-bold text-[#FAF5EE]">
+                MINTY EXTERIOR
               </Link>
             </div>
 
@@ -331,10 +331,10 @@ export default function Navbar() {
                     href={link.href}
                     onClick={link.onClick}
                     className={cn(
-                      "text-sm font-medium transition-colors hover:text-navbar-foreground/80",
+                      "text-sm font-medium transition-colors hover:text-[#FAF5EE]/80",
                       pathname === link.href
-                        ? "text-navbar-foreground"
-                        : "text-navbar-foreground/60"
+                        ? "text-[#FAF5EE]"
+                        : "text-[#FAF5EE]/60"
                     )}
                   >
                     {link.label}
@@ -347,30 +347,30 @@ export default function Navbar() {
             <div className="flex items-center">
               {user ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-navbar-foreground/60">
+                  <span className="text-sm text-[#FAF5EE]/60">
                     {user.phoneNumber}
                   </span>
                   <button
                     onClick={handleLogout}
-                    className="text-sm font-medium text-navbar-foreground hover:text-navbar-foreground/80 transition-colors"
+                    className="text-sm font-medium text-[#FAF5EE] hover:text-[#FAF5EE]/80 transition-colors"
                   >
                     Log out
                   </button>
                 </div>
               ) : (
                 <>
-                  <span className="text-sm text-navbar-foreground/60 mr-2">
+                  <span className="text-sm text-[#FAF5EE]/60 mr-2">
                     Are you a vendor?
                   </span>
                   <Link
                     href="/sign-up"
-                    className="text-sm font-medium text-navbar-foreground hover:text-navbar-foreground/80 transition-colors mr-4"
+                    className="text-sm font-medium text-[#FAF5EE] hover:text-[#FAF5EE]/80 transition-colors mr-4"
                   >
                     Sign up
                   </Link>
                   <button
                     onClick={handleLoginClick}
-                    className="text-sm font-medium text-navbar-foreground hover:text-navbar-foreground/80 transition-colors"
+                    className="text-sm font-medium text-[#FAF5EE] hover:text-[#FAF5EE]/80 transition-colors"
                   >
                     Log in
                   </button>
