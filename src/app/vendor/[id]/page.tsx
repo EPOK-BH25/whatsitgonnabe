@@ -1,24 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { collection, doc, getDoc } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { doc, getDoc, collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Icons } from "@/components/icons";
-import ReviewsPage from "@/app/reviews/page";
+import { Loader2, MapPin, Home, Car, Instagram, Globe, Star, Clock, CreditCard, Edit } from "lucide-react";
+import Image from "next/image";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 interface VendorData {
+  id: string;
   businessName: string;
   address: string;
   email: string;
   phoneNumber: string;
   images: string[];
+  tags: string[];
   offersDrive: boolean;
   offersHome: boolean;
   paymentOptions: {
@@ -32,157 +33,320 @@ interface VendorData {
     zelle: boolean;
   };
   socialmedia: string[];
-  tags: string[];
+}
+
+interface ReviewData {
+  id: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: Date;
 }
 
 export default function VendorProfile() {
   const params = useParams();
-  const [vendor, setVendor] = useState<VendorData | null>(null);
+  const router = useRouter();
+  const vendorId = params.id as string;
+  
   const [loading, setLoading] = useState(true);
+  const [vendor, setVendor] = useState<VendorData | null>(null);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
+  const [activeTab, setActiveTab] = useState("about");
+  const [selectedImage, setSelectedImage] = useState(0);
 
   useEffect(() => {
-    const fetchVendor = async () => {
-      if (!db) return;
+    const fetchVendorData = async () => {
+      if (!vendorId || !db) return;
       
       try {
-        const vendorDoc = await getDoc(doc(db, "vendor", params.id as string));
-        if (vendorDoc.exists()) {
-          setVendor(vendorDoc.data() as VendorData);
+        // Fetch vendor document
+        const vendorRef = doc(db, "vendor", vendorId);
+        const vendorSnap = await getDoc(vendorRef);
+        
+        if (vendorSnap.exists()) {
+          const vendorData = { id: vendorSnap.id, ...vendorSnap.data() } as VendorData;
+          setVendor(vendorData);
+          
+          // Fetch reviews
+          const reviewsRef = collection(db, "vendor", vendorId, "reviews");
+          const reviewsQuery = query(reviewsRef, orderBy("createdAt", "desc"));
+          const reviewsSnap = await getDocs(reviewsQuery);
+          
+          const reviewsData = reviewsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate()
+          })) as ReviewData[];
+          
+          setReviews(reviewsData);
         }
       } catch (error) {
-        console.error("Error fetching vendor:", error);
+        console.error("Error fetching vendor data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchVendor();
-  }, [params.id]);
+    fetchVendorData();
+  }, [vendorId]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!vendor) {
-    return <div>Vendor not found</div>;
+    return (
+      <div className="container mx-auto py-8">
+        <h1 className="text-2xl font-bold">Vendor not found</h1>
+      </div>
+    );
   }
 
+  const getPaymentMethods = () => {
+    const methods = [];
+    if (vendor.paymentOptions.cash) methods.push("Cash");
+    if (vendor.paymentOptions.credit) methods.push("Credit Card");
+    if (vendor.paymentOptions.debit) methods.push("Debit Card");
+    if (vendor.paymentOptions.paypal) methods.push("PayPal");
+    if (vendor.paymentOptions.venmo) methods.push("Venmo");
+    if (vendor.paymentOptions.cashapp) methods.push("Cash App");
+    if (vendor.paymentOptions.zelle) methods.push("Zelle");
+    if (vendor.paymentOptions.tap) methods.push("Tap to Pay");
+    return methods.join(", ");
+  };
+
+  const getSocialLinks = () => {
+    const links = [];
+    const instagram = vendor.socialmedia.find(link => link.includes("instagram.com") || link.startsWith("@"));
+    const website = vendor.socialmedia.find(link => !link.includes("instagram.com") && !link.startsWith("@"));
+    
+    if (instagram) {
+      // Format Instagram link properly
+      let instagramUrl = instagram;
+      if (instagram.startsWith("@")) {
+        instagramUrl = `https://instagram.com/${instagram.substring(1)}`;
+      } else if (!instagram.includes("instagram.com")) {
+        instagramUrl = `https://instagram.com/${instagram}`;
+      }
+      links.push({ type: "instagram", url: instagramUrl, display: instagram });
+    }
+    
+    if (website) {
+      // Ensure website has proper protocol
+      let websiteUrl = website;
+      if (!website.startsWith("http://") && !website.startsWith("https://")) {
+        websiteUrl = `https://${website}`;
+      }
+      links.push({ type: "website", url: websiteUrl, display: website });
+    }
+    
+    return links;
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Hero Section */}
-      <div className="relative h-[400px] w-full overflow-hidden rounded-lg">
-        <img
-          src={vendor.images[0] || "/placeholder-image.jpg"}
-          alt={vendor.businessName}
-          className="h-full w-full object-cover"
-        />
+    <div className="min-h-screen bg-background">
+      {/* Hero Section with Photo Carousel */}
+      <div className="relative h-[400px] w-full bg-muted">
+        {vendor?.images && vendor.images.length > 0 ? (
+          <Carousel className="w-full h-full">
+            <CarouselContent>
+              {vendor.images.map((image, index) => (
+                <CarouselItem key={index} className="relative h-[400px]">
+                  <Image
+                    src={image}
+                    alt={`${vendor.businessName} - Image ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    priority={index === 0}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {vendor.images.length > 1 && (
+              <>
+                <CarouselPrevious className="left-4" />
+                <CarouselNext className="right-4" />
+              </>
+            )}
+          </Carousel>
+        ) : (
+          <div className="flex items-center justify-center h-full bg-muted">
+            <span className="text-muted-foreground">No images available</span>
+          </div>
+        )}
       </div>
 
-      {/* Main Content */}
-      <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-3">
-        {/* Left Column - Main Info */}
-        <div className="md:col-span-2">
-          <h1 className="text-3xl font-bold">{vendor.businessName}</h1>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {vendor.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary">
-                {tag}
-              </Badge>
-            ))}
-          </div>
+      <div className="container mx-auto py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">{vendor.businessName}</h1>
+                <div className="flex items-center gap-2 text-muted-foreground mb-4">
+                  <MapPin className="h-4 w-4" />
+                  <span>{vendor.address}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {vendor.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2"
+                onClick={() => router.push(`/vendor/${vendorId}/dashboard`)}
+              >
+                <Edit className="h-4 w-4" />
+                <span>Edit Profile</span>
+              </Button>
+            </div>
 
-          <div className="mt-6">
-            <Tabs defaultValue="about">
-              <TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="about">About</TabsTrigger>
-                <TabsTrigger value="services">Services</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
               </TabsList>
-              <TabsContent value="about">
-                <Card className="p-6">
-                  <h2 className="text-xl font-semibold">About Us</h2>
-                  <p className="mt-4 text-gray-600">
-                    Welcome to {vendor.businessName}! We are dedicated to providing
-                    exceptional service to our clients.
-                  </p>
-                </Card>
-              </TabsContent>
-              <TabsContent value="services">
-                <Card className="p-6">
-                  <h2 className="text-xl font-semibold">Our Services</h2>
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              
+              <TabsContent value="about" className="space-y-6">
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Service Locations</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {vendor.offersHome && (
-                      <div className="flex items-center gap-2">
-                        <Icons.home className="h-5 w-5" />
-                        <span>Home Services</span>
-                      </div>
+                      <Card>
+                        <CardContent className="flex items-center gap-4 p-4">
+                          <Home className="h-8 w-8 text-primary" />
+                          <div>
+                            <h3 className="font-medium">At My Location</h3>
+                            <p className="text-sm text-muted-foreground">Services available at my business location</p>
+                          </div>
+                        </CardContent>
+                      </Card>
                     )}
                     {vendor.offersDrive && (
-                      <div className="flex items-center gap-2">
-                        <Icons.arrowRight className="h-5 w-5" />
-                        <span>Drive-in Services</span>
-                      </div>
+                      <Card>
+                        <CardContent className="flex items-center gap-4 p-4">
+                          <Car className="h-8 w-8 text-primary" />
+                          <div>
+                            <h3 className="font-medium">Mobile Services</h3>
+                            <p className="text-sm text-muted-foreground">I travel to your location</p>
+                          </div>
+                        </CardContent>
+                      </Card>
                     )}
                   </div>
-                </Card>
+                </div>
+
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Payment Methods</h2>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <span>{getPaymentMethods()}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h2 className="text-xl font-semibold">Contact Information</h2>
+                  <div className="space-y-2">
+                    <p className="flex items-center gap-2">
+                      <span className="font-medium">Phone:</span>
+                      <a href={`tel:${vendor.phoneNumber}`} className="text-primary hover:underline">
+                        {vendor.phoneNumber}
+                      </a>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="font-medium">Email:</span>
+                      <a href={`mailto:${vendor.email}`} className="text-primary hover:underline">
+                        {vendor.email}
+                      </a>
+                    </p>
+                  </div>
+                </div>
               </TabsContent>
-              <TabsContent value="reviews">
-                <ReviewsPage companyName={vendor.businessName} />
+              
+              <TabsContent value="reviews" className="space-y-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="h-5 w-5 text-yellow-500" />
+                  <span className="font-medium">
+                    {reviews.length} {reviews.length === 1 ? "Review" : "Reviews"}
+                  </span>
+                </div>
+                
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <Card key={review.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${
+                                  i < review.rating ? "text-yellow-500" : "text-muted"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {review.userName}
+                          </span>
+                        </div>
+                        <p className="text-sm">{review.comment}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {review.createdAt.toLocaleDateString()}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </TabsContent>
             </Tabs>
           </div>
-        </div>
 
-        {/* Right Column - Contact & Info */}
-        <div className="space-y-6">
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold">Contact Information</h2>
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <Icons.mail className="h-5 w-5" />
-                <span>{vendor.email}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Icons.phone className="h-5 w-5" />
-                <span>{vendor.phoneNumber}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Icons.mapPin className="h-5 w-5" />
-                <span>{vendor.address}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold">Payment Options</h2>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {Object.entries(vendor.paymentOptions).map(([method, accepted]) => (
-                accepted && (
-                  <div key={method} className="flex items-center gap-2">
-                    <Icons.check className="h-4 w-4 text-green-500" />
-                    <span className="capitalize">{method}</span>
-                  </div>
-                )
-              ))}
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold">Social Media</h2>
-            <div className="mt-4 flex gap-4">
-              {vendor.socialmedia.map((link, index) => (
-                <a
-                  key={index}
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-600"
-                >
-                  <Icons.externalLink className="h-5 w-5" />
-                </a>
-              ))}
-            </div>
-          </Card>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            <Card>
+              <CardContent className="p-4">
+                <h2 className="text-xl font-semibold mb-4">Connect</h2>
+                <div className="space-y-4">
+                  {getSocialLinks().map((link, index) => (
+                    <a
+                      key={index}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-primary hover:underline"
+                    >
+                      {link.type === "instagram" ? (
+                        <Instagram className="h-5 w-5" />
+                      ) : (
+                        <Globe className="h-5 w-5" />
+                      )}
+                      <span>
+                        {link.type === "instagram"
+                          ? link.display.startsWith("@")
+                            ? link.display
+                            : `@${link.display.split("/").pop()}`
+                          : link.display}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
