@@ -237,16 +237,16 @@ export default function Map({ vendors, userLocation, searchQuery, onMapLoaded }:
         results.push(...batchResults.filter(Boolean) as { lat: number; lon: number; vendor: Vendor }[]);
         
         // Update the state after each batch to show progress
-        setVendorLocations(prev => [...prev, ...batchResults.filter(Boolean) as { lat: number; lon: number; vendor: Vendor }[]]);
+        //setVendorLocations(prev => [...prev, ...batchResults.filter(Boolean) as { lat: number; lon: number; vendor: Vendor }[]]);
       }
 
       let finalResults = results;
-      if (userLocation) {
-        finalResults = results.filter(({ lat, lon }) =>
-          haversineDistance(userLocation.lat, userLocation.lon, lat, lon) <= 10000
-        );
-        console.log(`📍 Filtered to ${finalResults.length} vendors within 20 miles of user`);
-      }
+      // if (userLocation) {
+      //   finalResults = results.filter(({ lat, lon }) =>
+      //     haversineDistance(userLocation.lat, userLocation.lon, lat, lon) <= 10000
+      //   );
+      //   console.log(`📍 Filtered to ${finalResults.length} vendors within 20 miles of user`);
+      // }
 
       console.log("📦 Final vendorLocations set:", finalResults);
       setVendorLocations(finalResults);
