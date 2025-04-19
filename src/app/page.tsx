@@ -8,6 +8,7 @@ import { VendorCard } from "@/components/vendors-card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Map } from "@/components/map";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,7 +102,7 @@ export default function Home() {
         </div>
 
         <div className="flex-1 bg-gray-100 flex items-center justify-center">
-          <p className="text-gray-500 text-lg">Map or Content goes here</p>
+          <Map />
         </div>
       </div>
     </div>
