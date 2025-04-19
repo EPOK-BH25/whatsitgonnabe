@@ -12,6 +12,7 @@ import dynamic from "next/dynamic";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Vendor } from "../../core/interface";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Dynamically import Map component with SSR disabled
 const Map = dynamic(() => import("@/components/map").then((mod) => mod.default), { 
@@ -32,6 +33,18 @@ export default function Home() {
   const [selectedSubTags, setSelectedSubTags] = useState<string[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [paymentOptions, setPaymentOptions] = useState({
+    cash: false,
+    cashapp: false,
+    credit: false,
+    debit: false,
+    paypal: false,
+    tap: false,
+    venmo: false,
+    zelle: false,
+  });
 
   function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 3958.8;
@@ -359,6 +372,20 @@ export default function Home() {
     setMapLoaded(true);
   };
 
+  const handlePaymentOptionChange = (method: string) => {
+    setPaymentOptions(prev => ({ ...prev, [method]: !prev[method as keyof typeof paymentOptions] }));
+  };
+
+  const handleTagClick = (tag: string) => {
+    setSelectedTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
+    });
+  };
+
   return (
     <div className="h-screen w-screen flex flex-col">
       <div className="p-4 flex flex-wrap items-center gap-2">
@@ -370,48 +397,63 @@ export default function Home() {
             setSearchQuery(e.target.value);
             setFilterApplied(prev => !prev); // Force re-render
           }}
-          className="w-[80%] md:w-[300px] bg-transparent text-[#D2EFE2] border-[#D2EFE2] focus:border-[#D2EFE2] placeholder:text-gray-500"
+          className="w-[80%] md:w-[300px] bg-transparent text-black border-[#D2EFE2] focus:border-[#D2EFE2] placeholder:text-gray-500"
         />
 
-        {categories.map((category) => (
-          <div key={category} className="relative">
-            <Badge
-              onClick={() => toggleCategory(category)}
-              className={cn(
-                "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
-                selectedCategories.includes(category) || expandedTag === category 
+        <div className="flex flex-wrap items-center gap-2">
+          {categories.map((category) => (
+            <div key={category} className="relative">
+              <Badge
+                onClick={() => toggleCategory(category)}
+                className={cn(
+                  "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
+                  selectedCategories.includes(category) || expandedTag === category 
                   ? "bg-primary text-white" 
                   : "bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0]"
-              )}
-            >
-              {category}
-            </Badge>
+                )}
+              >
+                {category}
+              </Badge>
 
-            {expandedTag === category && (
-              <div 
-              ref={dropdownRef}
-              className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border rounded shadow-lg p-2 min-w-[200px]">
-                {nestedTags[category].map((subTag) => (
-                  <Badge
-                    key={subTag}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSubTag(subTag);
-                    }}
-                    className={cn(
-                      "cursor-pointer select-none px-3 py-1 rounded-full text-sm font-medium transition",
-                      selectedSubTags.includes(subTag)
-                        ? "bg-primary text-white"
-                        : "bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0]"
-                    )}
-                  >
-                    {subTag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+              {expandedTag === category && (
+                <div 
+                ref={dropdownRef}
+                className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border border-[#D2EFE2] rounded-lg shadow-lg p-3 min-w-[200px]">
+                  {nestedTags[category].map((subTag) => (
+                    <Badge
+                      key={subTag}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSubTag(subTag);
+                      }}
+                      className={cn(
+                        "cursor-pointer select-none px-3 py-1 rounded-full text-sm font-medium transition",
+                        selectedSubTags.includes(subTag)
+                          ? "bg-primary text-white"
+                          : "bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0]"
+                      )}
+                    >
+                      {subTag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {(selectedCategories.length > 0 || selectedSubTags.length > 0) && (
+            <button 
+              onClick={() => {
+                setSelectedCategories([]);
+                setSelectedSubTags([]);
+                setExpandedTag(null);
+                setFilterApplied(prev => !prev);
+              }}
+              className="text-sm font-medium text-[#2A6A4F] hover:text-[#1A5A3F] hover:underline transition-colors ml-2"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -421,31 +463,19 @@ export default function Home() {
               {loading ? "Loading..." : 
                `Showing ${filteredVendors.length} ${filteredVendors.length === 1 ? 'vendor' : 'vendors'}`}
             </p>
-            
-            {(selectedCategories.length > 0 || selectedSubTags.length > 0) && (
-              <button 
-                onClick={() => {
-                  setSelectedCategories([]);
-                  setSelectedSubTags([]);
-                  setExpandedTag(null);
-                  setFilterApplied(prev => !prev);
-                }}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Clear filters
-              </button>
-            )}
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-500">Loading vendors...</p>
                 </div>
               ) : filteredVendors.length > 0 ? (
                 filteredVendors.map((vendor) => (
-                  <VendorCard key={vendor.id} {...vendor} />
+                  <div key={vendor.id} className="h-full">
+                    <VendorCard {...vendor} />
+                  </div>
                 ))
               ) : (
                 <p className="text-gray-500 text-sm">No vendors found matching your criteria.</p>
