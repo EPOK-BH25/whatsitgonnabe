@@ -67,7 +67,7 @@ function SetViewToCurrentLocation({ onLocationFound }: { onLocationFound: (coord
   return null;
 }
 
-export default function Map({ vendors, userLocation, searchQuery }: Props) {
+export default function Map({ vendors, userLocation, searchQuery, onMapLoaded }: Props) {
   const [vendorLocations, setVendorLocations] = useState<{ lat: number; lon: number; vendor: Vendor }[]>([]);
   const [loading, setLoading] = useState(true);
   const [geocodingError, setGeocodingError] = useState(false);
@@ -143,15 +143,6 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
             // Check cache first
             if (geocodingCache.current[cityState]) {
               const { lat, lon } = geocodingCache.current[cityState];
-              return { lat, lon, vendor };
-            }
-            
-            // Try to use the mocked location first (for development or when API fails)
-            const hasPresetCoordinates = Object.prototype.hasOwnProperty.call(mockVendorLocations, cityState);
-            if (hasPresetCoordinates) {
-              const { lat, lon } = mockVendorLocations[cityState];
-              // Cache the result
-              geocodingCache.current[cityState] = { lat, lon };
               return { lat, lon, vendor };
             }
             
