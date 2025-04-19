@@ -3,54 +3,62 @@ import Link from "next/link";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-
-interface VendorCardProps {
-  id?: string;
-  businessName: string;
-  tags: string[];
-  description?: string;
-  city: string;
-  state: string;
-  links?: string[];
-  amenities?: string[];
-  rating?: number;
-  reviewCount?: number;
-  className?: string;
-}
+import { Vendor } from "../../core/interface";
 
 export function VendorCard({
   id,
   businessName,
+  address,
+  email,
+  phoneNumber,
+  images,
   tags,
-  description,
-  city,
-  state,
-  links = [],
-  amenities = [],
-  rating,
-  reviewCount,
-  className,
-}: VendorCardProps) {
+  offersDrive,
+  offersHome,
+  paymentOptions,
+  socialmedia,
+}: Vendor) {
   const [expanded, setExpanded] = useState(false);
+
+  // Parse city/state from address if possible
+  const addressParts = address.split(",");
+  const city = addressParts[1]?.trim() || "City";
+  const state = addressParts[2]?.trim() || "State";
+
+  const description = `${offersHome ? "Home services available. " : ""}${
+    offersDrive ? "Drive-in services available." : ""
+  }`;
+
+  const amenities = Object.entries(paymentOptions)
+    .filter(([_, accepted]) => accepted)
+    .map(([method]) => method);
+
+  const primaryImage = images?.[0];
 
   return (
     <Card
       onClick={() => setExpanded(!expanded)}
       className={cn(
-        "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition",
-        className
+        "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition"
       )}
     >
-      <div className="flex justify-between items-start">
-        <Link
-          href={id ? `/vendor/${id}` : links[0] ?? "#"}
-          onClick={(e) => e.stopPropagation()}
-          target={id ? undefined : "_blank"}
-          rel={id ? undefined : "noopener noreferrer"}
-          className="text-xl font-semibold text-black hover:underline"
-        >
-          {businessName}
-        </Link>
+      <div className="flex items-start gap-4">
+        {primaryImage && (
+          <img
+            src={primaryImage}
+            alt={businessName}
+            className="w-16 h-16 rounded object-cover"
+          />
+        )}
+        <div className="flex-1">
+          <Link
+            href={`/vendor/${id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xl font-semibold text-black hover:underline"
+          >
+            {businessName}
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -68,18 +76,22 @@ export function VendorCard({
 
       {expanded && (
         <div className="mt-3 space-y-2">
-          {rating && (
-            <div>
-              <p className="font-semibold text-sm">⭐ {rating} ({reviewCount} reviews)</p>
-            </div>
-          )}
+          <div>
+            <p className="font-semibold text-sm">Contact:</p>
+            <p className="text-sm text-gray-700">{email}</p>
+            <p className="text-sm text-gray-700">{phoneNumber}</p>
+          </div>
 
           {amenities.length > 0 && (
             <div>
-              <p className="font-semibold text-sm">Amenities:</p>
+              <p className="font-semibold text-sm">Accepted Payments:</p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {amenities.map((item, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs px-3 py-1">
+                  <Badge
+                    key={index}
+                    variant="secondary"
+                    className="text-xs px-3 py-1"
+                  >
                     {item}
                   </Badge>
                 ))}
@@ -87,9 +99,9 @@ export function VendorCard({
             </div>
           )}
 
-          {links.length > 1 && (
+          {socialmedia?.length > 0 && (
             <div className="pt-2 space-y-1">
-              {links.slice(1).map((link, index) => (
+              {socialmedia.map((link, index) => (
                 <Link
                   key={index}
                   href={link}
@@ -98,7 +110,7 @@ export function VendorCard({
                   className="text-sm text-blue-600 underline hover:text-blue-800 block"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  Extra Link {index + 1}
+                  Social Link {index + 1}
                 </Link>
               ))}
             </div>
