@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
-import { Vendor } from "../../core/interface";
+import { Vendor } from "../core/interface";
 import { ChevronDown, Home, Car, Check, Star } from "lucide-react";
 
 export function VendorCard({
