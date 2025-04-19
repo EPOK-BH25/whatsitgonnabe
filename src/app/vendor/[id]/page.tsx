@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, MapPin, Home, Car, Instagram, Globe, Star, Clock, CreditCard, Edit, Phone } from "lucide-react";
+import { Loader2, MapPin, Home, Car, Instagram, Globe, Star, Clock, CreditCard, Edit, Phone, Share2, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import "keen-slider/keen-slider.min.css";
 import { useKeenSlider } from "keen-slider/react";
+import { generateMetadata } from "./metadata";
 
 interface VendorData {
   id: string;
@@ -81,6 +82,7 @@ export default function VendorProfile() {
   const [activeTab, setActiveTab] = useState("about");
   const [selectedImage, setSelectedImage] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
+  const [hasSwiped, setHasSwiped] = useState(false);
   
   // Review form state
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -100,6 +102,14 @@ export default function VendorProfile() {
     slides: {
       perView: 1,
     },
+    created: () => {
+      // Reset hasSwiped when slider is created
+      setHasSwiped(false);
+    },
+    slideChanged: () => {
+      // Set hasSwiped to true after first slide change
+      setHasSwiped(true);
+    }
   });
 
 
@@ -450,8 +460,18 @@ useEffect(() => {
                   }}
                 />
               </div>
-
             ))}
+            
+            {/* Swipe indicator - only show if not swiped yet */}
+            {vendor.images.length > 1 && (
+              <div 
+                className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-1 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full transition-opacity duration-500 ${hasSwiped ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+              >
+                <ChevronLeft className="h-4 w-4 text-white" />
+                <span className="text-white text-sm font-medium">Swipe for more</span>
+                <ChevronRight className="h-4 w-4 text-white" />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-center h-[400px] bg-muted">
@@ -465,9 +485,21 @@ useEffect(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-3xl font-bold">{vendor.businessName}</h1>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success("Link copied to clipboard!");
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-[#D2EFE2] text-[#2A6A4F] rounded-md hover:bg-[#B8E5D0] transition-colors"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+            </div>
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-3xl font-bold mb-2">{vendor.businessName}</h1>
                 <div className="flex items-center gap-2 text-muted-foreground mb-4">
                   <MapPin className="h-4 w-4" />
                   <span>{vendor.address}</span>
@@ -491,7 +523,11 @@ useEffect(() => {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {vendor.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary">
+                    <Badge 
+                      key={index} 
+                      variant="secondary"
+                      className="bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0] transition-colors"
+                    >
                       {tag}
                     </Badge>
                   ))}
@@ -510,12 +546,22 @@ useEffect(() => {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="about">About</TabsTrigger>
-                <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-[#D2EFE2] p-1">
+                <TabsTrigger 
+                  value="about" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-[#2A6A4F] text-[#2A6A4F] transition-all duration-300"
+                >
+                  About
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="reviews" 
+                  className="data-[state=active]:bg-white data-[state=active]:text-[#2A6A4F] text-[#2A6A4F] transition-all duration-300"
+                >
+                  Reviews
+                </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="about" className="space-y-6">
+              <TabsContent value="about" className="space-y-6 transition-all duration-300">
                 <div className="space-y-4">
                   <h2 className="text-xl font-semibold">Service Locations</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -571,7 +617,7 @@ useEffect(() => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="reviews" className="space-y-6">
+              <TabsContent value="reviews" className="space-y-6 transition-all duration-300">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Star className="h-5 w-5 text-yellow-500" />
@@ -581,8 +627,8 @@ useEffect(() => {
                   </div>
                   
                   <Button 
-                    variant="outline" 
                     onClick={() => setShowReviewForm(!showReviewForm)}
+                    className="bg-[#D2EFE2] text-[#2A6A4F] hover:bg-[#B8E5D0] transition-colors"
                   >
                     {showReviewForm ? "Cancel" : "Write a Review"}
                   </Button>
