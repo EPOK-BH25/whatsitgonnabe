@@ -163,8 +163,9 @@ export default function Home() {
         ))}
       </div>
 
+
+        <div className="w-[50%] p-4 flex flex-col gap-4">
       <div className="flex flex-1 overflow-hidden relative z-0">
-        <div className="w-[50%] border-r p-4 flex flex-col gap-4">
           <ScrollArea className="flex-1">
             <div className="space-y-4">
               {loading ? (
@@ -180,12 +181,14 @@ export default function Home() {
           </ScrollArea>
         </div>
 
-        <div className="flex-1 bg-gray-100 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center pr-8 pb-8">
+          <div className="w-full h-full">
           <Map
             vendors={filteredVendors}
             userLocation={userLocation}
             searchQuery={delayedQuery}
           />
+          </div>
         </div>
       </div>
     </div>
