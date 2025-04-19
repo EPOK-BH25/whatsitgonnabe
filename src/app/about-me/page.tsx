@@ -20,7 +20,7 @@ const AboutMe: React.FC = () => {
           {/* Team Member 1 */}
           <div className="team-member bg-card p-6 rounded-xl shadow-lg">
             <img
-              src="https://via.placeholder.com/150"
+              src="https://media.licdn.com/dms/image/v2/D5635AQHT0tGak7yjIA/profile-framedphoto-shrink_800_800/B56ZX0wEoOGoAg-/0/1743567997832?e=1745665200&v=beta&t=sSz64P8dtcNKr2z_u9KIOFYgX_RPMJ2qpERC8m-_QD0"
               alt="Person 1"
               className="team-photo rounded-full w-36 h-36 object-cover mx-auto mb-4"
             />
@@ -37,7 +37,7 @@ const AboutMe: React.FC = () => {
           {/* Team Member 2 */}
           <div className="team-member bg-card p-6 rounded-xl shadow-lg">
             <img
-              src="https://via.placeholder.com/150"
+              src="https://media.licdn.com/dms/image/v2/D5635AQHT0tGak7yjIA/profile-framedphoto-shrink_800_800/B56ZX0wEoOGoAg-/0/1743567997832?e=1745665200&v=beta&t=sSz64P8dtcNKr2z_u9KIOFYgX_RPMJ2qpERC8m-_QD0"
               alt="Person 2"
               className="team-photo rounded-full w-36 h-36 object-cover mx-auto mb-4"
             />
@@ -53,7 +53,7 @@ const AboutMe: React.FC = () => {
           {/* Team Member 3 */}
           <div className="team-member bg-card p-6 rounded-xl shadow-lg">
             <img
-              src="https://via.placeholder.com/150"
+              src="https://media.licdn.com/dms/image/v2/D5635AQHT0tGak7yjIA/profile-framedphoto-shrink_800_800/B56ZX0wEoOGoAg-/0/1743567997832?e=1745665200&v=beta&t=sSz64P8dtcNKr2z_u9KIOFYgX_RPMJ2qpERC8m-_QD0"
               alt="Person 3"
               className="team-photo rounded-full w-36 h-36 object-cover mx-auto mb-4"
             />
@@ -70,7 +70,7 @@ const AboutMe: React.FC = () => {
           {/* Team Member 4 */}
           <div className="team-member bg-card p-6 rounded-xl shadow-lg">
             <img
-              src="https://via.placeholder.com/150"
+              src="https://media.licdn.com/dms/image/v2/D5635AQHT0tGak7yjIA/profile-framedphoto-shrink_800_800/B56ZX0wEoOGoAg-/0/1743567997832?e=1745665200&v=beta&t=sSz64P8dtcNKr2z_u9KIOFYgX_RPMJ2qpERC8m-_QD0"
               alt="Person 4"
               className="team-photo rounded-full w-36 h-36 object-cover mx-auto mb-4"
             />
