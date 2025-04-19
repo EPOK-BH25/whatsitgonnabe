@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from "@/components/ui/toaster";
+import 'leaflet/dist/leaflet.css';
 import Layout from '@/components/Layout'; 
 import "@/lib/fontawesome";
 
