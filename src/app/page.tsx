@@ -31,86 +31,127 @@ export default function Home() {
   const [expandedTag, setExpandedTag] = useState<string | null>(null);
   const [selectedSubTags, setSelectedSubTags] = useState<string[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const vendorsCache = useRef<Vendor[]>([]);
 
   const categories = ["Hair", "Nails", "Makeup"];
 
   const nestedTags: Record<string, string[]> = {
-    Hair: ["brazilian", "color", "extensions", "haircuts", "laser", "wax", "brows"],
-    Nails: ["acrylics", "manicure", "pedicure"],
-    Makeup: ["bridal", "natural", "prom", "tattooCover"]
+    Hair: ["Brazilian", "Color", "Extensions", "Haircuts", "Laser", "Wax", "Brows"],
+    Nails: ["Acrylics", "Manicure", "Pedicure"],
+    Makeup: ["Bridal", "Natural", "Prom", "TattooCover"]
   };
 
-  // Fetch vendors from Firebase
+  // Fetch vendors from Firebase with caching
   useEffect(() => {
     const fetchVendors = async () => {
       try {
+        // Check if we have cached vendors
+        if (vendorsCache.current.length > 0) {
+          setVendors(vendorsCache.current);
+          setLoading(false);
+          return;
+        }
+
         if (!db) return;
+        
+        // Show loading state only if we don't have cached data
+        setLoading(true);
+        
         const vendorSnapshot = await getDocs(collection(db, "vendor"));
         const vendorsData: Vendor[] = [];
 
-        for (const vendorDoc of vendorSnapshot.docs) {
-          const vendorData = vendorDoc.data();
+        // Process vendors in batches to avoid blocking the UI
+        const batchSize = 5;
+        const vendorDocs = vendorSnapshot.docs;
+        
+        for (let i = 0; i < vendorDocs.length; i += batchSize) {
+          const batch = vendorDocs.slice(i, i + batchSize);
+          const batchPromises = batch.map(async (vendorDoc) => {
+            const vendorData = vendorDoc.data();
 
-          // Destructure all required fields from vendorData
-          const {
-            businessName,
-            address,
-            email,
-            phoneNumber,
-            images = [],
-            tags = [],
-            offersDrive = false,
-            offersHome = false,
-            paymentOptions = {
-              cash: false,
-              cashapp: false,
-              credit: false,
-              debit: false,
-              paypal: false,
-              tap: false,
-              venmo: false,
-              zelle: false,
-            },
-            socialmedia = [],
-          } = vendorData;
+            // Destructure all required fields from vendorData
+            const {
+              businessName,
+              address,
+              email,
+              phoneNumber,
+              images = [],
+              tags = [],
+              offersDrive = false,
+              offersHome = false,
+              paymentOptions = {
+                cash: false,
+                cashapp: false,
+                credit: false,
+                debit: false,
+                paypal: false,
+                tap: false,
+                venmo: false,
+                zelle: false,
+              },
+              socialmedia = [],
+            } = vendorData;
 
-          // Get the nested services document
-          const servicesRef = collection(db, "vendor", vendorDoc.id, "services");
-          const servicesSnapshot = await getDocs(servicesRef);
+            // Get the nested services document
+            if (db) {
+              const servicesRef = collection(db, "vendor", vendorDoc.id, "services");
+              const servicesSnapshot = await getDocs(servicesRef);
 
-          let flattenedServices = {};
-          if (!servicesSnapshot.empty) {
-            // Get the first document in the services subcollection
-            const serviceDoc = servicesSnapshot.docs[0];
-            if (serviceDoc) {
-              flattenedServices = serviceDoc.data();
+              let flattenedServices = {};
+              if (!servicesSnapshot.empty) {
+                // Get the first document in the services subcollection
+                const serviceDoc = servicesSnapshot.docs[0];
+                if (serviceDoc) {
+                  flattenedServices = serviceDoc.data();
+                }
+              }
+
+              // Fetch reviews to calculate review count and average rating
+              const reviewsRef = collection(db, "vendor", vendorDoc.id, "reviews");
+              const reviewsSnapshot = await getDocs(reviewsRef);
+              const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+              
+              const reviewCount = reviews.length;
+              const averageRating = reviewCount > 0 
+                ? reviews.reduce((sum, review) => sum + (review.star || 0), 0) / reviewCount 
+                : 0;
+
+              return {
+                id: vendorDoc.id,
+                businessName,
+                address,
+                email,
+                phoneNumber,
+                images,
+                tags: tags.map((tag: string) => tag.toLowerCase()),
+                offersDrive,
+                offersHome,
+                paymentOptions,
+                socialmedia,
+                services: flattenedServices,
+                reviewCount,
+                averageRating,
+              };
             }
-          }
-
-          const vendorObj: Vendor = {
-            id: vendorDoc.id,
-            businessName,
-            address,
-            email,
-            phoneNumber,
-            images,
-            tags: tags.map((tag: string) => tag.toLowerCase()),
-            offersDrive,
-            offersHome,
-            paymentOptions,
-            socialmedia,
-            services: flattenedServices,
-          };
-
-          vendorsData.push(vendorObj);
+            return null;
+          });
+          
+          // Wait for all promises in the batch to resolve
+          const batchResults = await Promise.all(batchPromises);
+          const validResults = batchResults.filter(Boolean) as Vendor[];
+          vendorsData.push(...validResults);
+          
+          // Update the state after each batch to show progress
+          setVendors(prev => [...prev, ...validResults]);
         }
 
+        // Cache the vendors for future use
+        vendorsCache.current = vendorsData;
         setVendors(vendorsData);
         setLoading(false);
-        console.log(`Loaded ${vendorsData.length} vendors`);
-        
       } catch (error) {
         console.error("Error fetching vendors:", error);
         setLoading(false);
@@ -173,7 +214,7 @@ export default function Home() {
     if (isSelected) {
       // Remove all subtags related to this category
       setSelectedSubTags((prev) =>
-        prev.filter((tag) => !nestedTags[category].includes(tag))
+        prev.filter((tag) => !nestedTags[category].map(t => t.toLowerCase()).includes(tag.toLowerCase()))
       );
       setExpandedTag(null);
     } else {
@@ -186,18 +227,15 @@ export default function Home() {
   const toggleSubTag = (subTag: string) => {
     setFilterApplied(prev => !prev);
 
-    const isSelected = selectedSubTags.includes(subTag);
+    const isSelected = selectedSubTags.some(tag => tag.toLowerCase() === subTag.toLowerCase());
 
     const newSelectedSubTags = isSelected
-      ? selectedSubTags.filter((tag) => tag !== subTag)
+      ? selectedSubTags.filter((tag) => tag.toLowerCase() !== subTag.toLowerCase())
       : [...selectedSubTags, subTag];
 
     console.log(`Toggling subtag: ${subTag}, new selection:`, newSelectedSubTags);
 
     setSelectedSubTags(newSelectedSubTags);
-
-    // 👇 Collapse the dropdown once a subtag is selected
-    setExpandedTag(null);
   };
 
 
@@ -232,7 +270,8 @@ export default function Home() {
     const matchesCityOrState = !query || city.includes(query) || state.includes(query);
     if (!matchesCityOrState) return false;
 
-    const vendorTags = vendor.tags || [];
+    // Convert vendor tags to lowercase for case-insensitive comparison
+    const vendorTags = (vendor.tags || []).map(tag => tag.toLowerCase());
 
     // If no categories selected, return all vendors
     if (selectedCategories.length === 0) return true;
@@ -248,8 +287,8 @@ export default function Home() {
       }
 
       // Only consider subtags from this category
-      const categorySubtags = nestedTags[category] || [];
-      const activeSubtagsForCategory = selectedSubTags.filter((tag) =>
+      const categorySubtags = nestedTags[category].map(tag => tag.toLowerCase()) || [];
+      const activeSubtagsForCategory = selectedSubTags.map(tag => tag.toLowerCase()).filter((tag) =>
         categorySubtags.includes(tag)
       );
 
@@ -274,6 +313,9 @@ export default function Home() {
   // Format vendors for display and map
   const displayVendors = useMemo(() => {
     return filteredVendors.map(vendor => {
+      // Log the vendor data to check images
+      console.log(`Vendor ${vendor.businessName} images:`, vendor.images);
+      
       // Handle empty address case
       if (!vendor.address) {
         return {
@@ -298,6 +340,11 @@ export default function Home() {
       };
     });
   }, [filteredVendors]);
+
+  // Handle map loaded event
+  const handleMapLoaded = () => {
+    setMapLoaded(true);
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -337,11 +384,14 @@ export default function Home() {
             {expandedTag === category && (
               <div 
               ref={dropdownRef}
-              className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border rounded shadow-lg p-2">
+              className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border rounded shadow-lg p-2 min-w-[200px]">
                 {nestedTags[category].map((subTag) => (
                   <Badge
                     key={subTag}
-                    onClick={() => toggleSubTag(subTag)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent event bubbling
+                      toggleSubTag(subTag);
+                    }}
                     className={cn(
                       "cursor-pointer select-none px-3 py-1 rounded-full text-xs transition",
                       selectedSubTags.includes(subTag)
@@ -384,7 +434,9 @@ export default function Home() {
           <ScrollArea className="flex-1">
             <div className="space-y-4">
               {loading ? (
-                <p className="text-gray-500 text-sm">Loading vendors...</p>
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">Loading vendors...</p>
+                </div>
               ) : filteredVendors.length > 0 ? (
                 filteredVendors.map((vendor) => (
                   <VendorCard key={vendor.id} {...vendor} />
@@ -402,6 +454,7 @@ export default function Home() {
               vendors={displayVendors}
               userLocation={userLocation}
               searchQuery={delayedQuery}
+              onMapLoaded={handleMapLoaded}
             />
           ) : (
             <div className="text-center">

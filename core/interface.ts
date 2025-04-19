@@ -25,7 +25,8 @@ export interface Vendor {
     makeup?: Record<string, boolean>;
     [key: string]: Record<string, boolean> | undefined;
   };
-
+  reviewCount?: number;
+  averageRating?: number;
 }
 
 export interface DisplayVendor extends Vendor {

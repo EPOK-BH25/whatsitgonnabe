@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 import { Vendor } from "../../core/interface";
+import { ChevronDown, Home, Car, Check, Star } from "lucide-react";
 
 export function VendorCard({
   id,
@@ -17,38 +18,62 @@ export function VendorCard({
   offersHome,
   paymentOptions,
   socialmedia,
+  reviewCount = 0,
+  averageRating = 0,
 }: Vendor) {
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Parse city/state from address if possible
   const addressParts = address.split(",");
   const city = addressParts[1]?.trim() || "City";
   const state = addressParts[2]?.trim() || "State";
 
-  const description = `${offersHome ? "Home services available. " : ""}${
-    offersDrive ? "Drive-in services available." : ""
-  }`;
-
   const amenities = Object.entries(paymentOptions)
     .filter(([_, accepted]) => accepted)
     .map(([method]) => method);
 
-  const primaryImage = images?.[0];
+  const primaryImage = images && images.length > 0 ? images[0] : null;
+
+  // Function to scroll to the corresponding marker on the map
+  const scrollToMarker = () => {
+    // Use the global centerOnVendor function
+    if (typeof window !== 'undefined' && (window as any).centerOnVendor) {
+      (window as any).centerOnVendor(id);
+    }
+  };
+
+  // Handle card click
+  const handleCardClick = () => {
+    setExpanded(!expanded);
+    if (!expanded) {
+      // When expanding, scroll to the marker after a short delay
+      setTimeout(scrollToMarker, 100);
+    }
+  };
 
   return (
     <Card
-      onClick={() => setExpanded(!expanded)}
+      ref={cardRef}
+      onClick={handleCardClick}
       className={cn(
         "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition"
       )}
     >
       <div className="flex items-start gap-4">
-        {primaryImage && (
-          <img
-            src={primaryImage}
-            alt={businessName}
-            className="w-16 h-16 rounded object-cover"
-          />
+        {primaryImage ? (
+          <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
+            <img
+              src={primaryImage}
+              alt={businessName}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div className="w-16 h-16 rounded bg-gray-200 flex-shrink-0 flex items-center justify-center">
+            <span className="text-gray-400 text-xs">No image</span>
+          </div>
         )}
         <div className="flex-1">
           <Link
@@ -58,7 +83,30 @@ export function VendorCard({
           >
             {businessName}
           </Link>
+          {reviewCount > 0 && (
+            <div className="flex items-center gap-1 mt-1">
+              <div className="flex">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-3 w-3 ${
+                      i < Math.round(averageRating) ? "text-yellow-500" : "text-gray-300"
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-muted-foreground ml-1">
+                ({reviewCount})
+              </span>
+            </div>
+          )}
         </div>
+        <ChevronDown 
+          className={cn(
+            "h-5 w-5 text-muted-foreground transition-transform duration-300",
+            expanded ? "transform rotate-180" : ""
+          )}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -69,7 +117,23 @@ export function VendorCard({
         ))}
       </div>
 
-      <p className="text-sm text-gray-600">{description}</p>
+      <div className="flex flex-col gap-2">
+        {offersHome && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Home className="h-4 w-4 text-primary" />
+            <span>Home services available</span>
+            <Check className="h-3 w-3 text-green-500 ml-1" />
+          </div>
+        )}
+        {offersDrive && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Car className="h-4 w-4 text-primary" />
+            <span>Drive-in services available</span>
+            <Check className="h-3 w-3 text-green-500 ml-1" />
+          </div>
+        )}
+      </div>
+
       <p className="text-sm text-muted-foreground">
         {city}, {state}
       </p>
@@ -96,23 +160,6 @@ export function VendorCard({
                   </Badge>
                 ))}
               </div>
-            </div>
-          )}
-
-          {socialmedia?.length > 0 && (
-            <div className="pt-2 space-y-1">
-              {socialmedia.map((link, index) => (
-                <Link
-                  key={index}
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 underline hover:text-blue-800 block"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Social Link {index + 1}
-                </Link>
-              ))}
             </div>
           )}
         </div>
