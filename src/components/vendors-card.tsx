@@ -57,12 +57,12 @@ export function VendorCard({
       ref={cardRef}
       onClick={handleCardClick}
       className={cn(
-        "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition bg-[#D2EFE2]"
+        "p-4 shadow-md cursor-pointer hover:shadow-lg transition bg-[#D2EFE2] h-full flex flex-col"
       )}
     >
       <div className="flex items-start gap-4">
         {primaryImage ? (
-          <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
+          <div className="w-24 h-24 rounded overflow-hidden flex-shrink-0">
             <img
               src={primaryImage}
               alt={businessName}
@@ -71,15 +71,15 @@ export function VendorCard({
             />
           </div>
         ) : (
-          <div className="w-16 h-16 rounded bg-[#B8E5D0] flex-shrink-0 flex items-center justify-center">
+          <div className="w-24 h-24 rounded bg-[#B8E5D0] flex-shrink-0 flex items-center justify-center">
             <span className="text-[#4A8A6F] text-xs">No image</span>
           </div>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Link
             href={`/vendor/${id}`}
             onClick={(e) => e.stopPropagation()}
-            className="text-xl font-semibold text-black hover:underline"
+            className="text-xl font-semibold text-black hover:underline truncate block"
           >
             {businessName}
           </Link>
@@ -89,8 +89,8 @@ export function VendorCard({
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-3 w-3 ${
-                      i < Math.round(averageRating) ? "text-yellow-500" : "text-gray-300"
+                    className={`h-4 w-4 ${
+                      i < Math.round(averageRating) ? "text-yellow-500 fill-yellow-500" : "text-gray-300"
                     }`}
                   />
                 ))}
@@ -109,7 +109,7 @@ export function VendorCard({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 mt-2">
         {tags.map((tag, index) => (
           <Badge 
             key={index} 
@@ -121,7 +121,7 @@ export function VendorCard({
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 mt-2">
         {offersHome && (
           <div className="flex items-center gap-2 text-sm text-[#2A6A4F]">
             <Home className="h-4 w-4 text-[#3A7A5F]" />
@@ -138,7 +138,7 @@ export function VendorCard({
         )}
       </div>
 
-      <p className="text-sm text-[#2A6A4F]">
+      <p className="text-sm text-[#2A6A4F] mt-2">
         {city}, {state}
       </p>
 
@@ -166,6 +166,28 @@ export function VendorCard({
               </div>
             </div>
           )}
+          
+          <div className="mt-4 flex justify-end">
+            <Link
+              href={`/vendor/${id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-block px-4 py-2 bg-[#2A6A4F] text-white rounded-md hover:bg-[#1A5A3F] transition-colors text-sm font-medium"
+            >
+              More Details
+            </Link>
+          </div>
+        </div>
+      )}
+      
+      {!expanded && (
+        <div className="mt-3 flex justify-end">
+          <Link
+            href={`/vendor/${id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-block px-4 py-2 bg-[#2A6A4F] text-white rounded-md hover:bg-[#1A5A3F] transition-colors text-sm font-medium"
+          >
+            More Details
+          </Link>
         </div>
       )}
     </Card>
