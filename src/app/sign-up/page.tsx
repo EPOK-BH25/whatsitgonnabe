@@ -98,7 +98,7 @@ const getPhoneNumberPlaceholder = (countryCode: string) => {
 };
 
 const SignUp = () => {
-  const [stage, setStage] = useState<"phone" | "code" | "username">("phone");
+  const [stage, setStage] = useState<"phone" | "code">("phone");
   const [isLoading, setIsLoading] = useState(false);
   const [verificationId, setVerificationId] = useState<string>("");
   const router = useRouter();
@@ -110,7 +110,7 @@ const SignUp = () => {
       password: "",
       passwordConfirm: "",
       code: "",
-      username: "",
+      username: "vendor_" + Math.random().toString(36).substring(2, 8), // Generate a random username
     },
     mode: "onChange",
   });
@@ -162,7 +162,7 @@ const SignUp = () => {
           (window as any).recaptchaVerifier = undefined;
         }
 
-        // Create a new invisible reCAPTCHA verifier
+        // Create a new invisible reCAPTCHA verifier with auto-verification
         const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: (response: any) => {
@@ -170,11 +170,28 @@ const SignUp = () => {
           },
           'expired-callback': () => {
             console.log("reCAPTCHA expired");
-            toast({
-              title: "reCAPTCHA Expired",
-              description: "Please try again.",
-              variant: "destructive",
-            });
+            // Silently refresh the reCAPTCHA instead of showing an error
+            if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
+              try {
+                (window as any).recaptchaVerifier.clear();
+              } catch (e) {
+                console.warn("reCAPTCHA already cleared:", e);
+              }
+              (window as any).recaptchaVerifier = undefined;
+            }
+            // Re-initialize the reCAPTCHA
+            if (auth) {
+              const newRecaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                size: 'invisible',
+                callback: (response: any) => {
+                  console.log("reCAPTCHA verified successfully", response);
+                },
+                'expired-callback': () => {
+                  console.log("reCAPTCHA expired");
+                }
+              });
+              (window as any).recaptchaVerifier = newRecaptchaVerifier;
+            }
           }
         });
 
@@ -184,11 +201,7 @@ const SignUp = () => {
 
       } catch (error) {
         console.error("Error setting up reCAPTCHA:", error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize reCAPTCHA. Please refresh the page and try again.",
-          variant: "destructive",
-        });
+        // Silently handle the error instead of showing a toast
       }
     }
 
@@ -295,48 +308,59 @@ const SignUp = () => {
             isVerified: true
           });
           
-          // Step 4: Add timestamps
-          console.log("Step 4: Adding timestamps");
+          // Step 4: Add timestamps and username
+          console.log("Step 4: Adding timestamps and username");
           await setDoc(userDoc, {
             uid: user.uid,
             phoneNumber: user.phoneNumber || '',
             isVerified: true,
+            username: data.username,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
           
-          console.log("✅ Profile created successfully");
-          setStage("username");
+          // Create vendor document
+          console.log("Creating vendor document");
+          const vendorDoc = doc(db, 'vendor', user.uid);
+          await setDoc(vendorDoc, {
+            uid: user.uid,
+            phoneNumber: user.phoneNumber || '',
+            businessName: '',
+            email: '',
+            address: '',
+            offersHome: false,
+            offersDrive: false,
+            paymentOptions: {
+              cash: false,
+              cashapp: false,
+              credit: false,
+              debit: false,
+              paypal: false,
+              tap: false,
+              venmo: false,
+              zelle: false,
+            },
+            images: [],
+            username: data.username,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          
+          console.log("✅ Profile and vendor document created successfully");
+          
+          // Update Firebase profile with username
+          await updateFirebaseProfile(user, {
+            displayName: data.username
+          });
+          
+          // Redirect to vendor setup page
+          router.push(`/vendor/${user.uid}/setup`);
         } catch (firestoreError) {
           console.error("Error creating profile:", firestoreError);
           // If profile creation fails, delete the user
           await user.delete();
           throw new Error("Failed to create user profile");
         }
-      } else if (stage === "username") {
-        const user = auth?.currentUser;
-        if (!user) {
-          throw new Error("No authenticated user found");
-        }
-
-        // Update Firebase profile with username
-        await updateFirebaseProfile(user, {
-          displayName: data.username
-        });
-
-        // Update Firestore profile with username
-        if (!db) {
-          throw new Error("Firestore is not initialized");
-        }
-        
-        const userDoc = doc(db, 'profiles', user.uid);
-        await updateDoc(userDoc, {
-          username: data.username,
-          updatedAt: serverTimestamp()
-        });
-
-        // Redirect to home page
-        router.push("/");
       }
     } catch (error) {
       console.error("Error during sign up:", error);
@@ -359,7 +383,6 @@ const SignUp = () => {
           <p className="text-sm text-muted-foreground">
             {stage === "phone" && "Enter your phone number and password to create an account."}
             {stage === "code" && "Please verify your phone number to continue."}
-            {stage === "username" && "Choose a username to complete your account setup."}
           </p>
         </div>
         <Form {...form}>
@@ -561,22 +584,6 @@ const SignUp = () => {
               />
             )}
 
-            {stage === "username" && (
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="sparky_auth" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-
             <Button 
               type="submit"
               disabled={isLoading}
@@ -587,7 +594,6 @@ const SignUp = () => {
               )}
               {stage === "phone" && "Create Account"}
               {stage === "code" && "Verify Phone"}
-              {stage === "username" && "Complete Setup"}
             </Button>
 
             {stage === "code" && (
@@ -609,12 +615,48 @@ const SignUp = () => {
                     }
 
                     try {
-                      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                        'size': 'normal',
-                        'callback': () => {
-                          console.log("reCAPTCHA verified");
+                      // Use the existing reCAPTCHA verifier if available
+                      let recaptchaVerifier = (window as any).recaptchaVerifier;
+                      
+                      // If not available, create a new one
+                      if (!recaptchaVerifier) {
+                        if (!auth) {
+                          throw new Error("Authentication service not initialized");
                         }
-                      });
+                        recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                          'size': 'invisible',
+                          'callback': () => {
+                            console.log("reCAPTCHA verified");
+                          },
+                          'expired-callback': () => {
+                            console.log("reCAPTCHA expired");
+                            // Silently refresh the reCAPTCHA
+                            if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
+                              try {
+                                (window as any).recaptchaVerifier.clear();
+                              } catch (e) {
+                                console.warn("reCAPTCHA already cleared:", e);
+                              }
+                              (window as any).recaptchaVerifier = undefined;
+                            }
+                            // Re-initialize the reCAPTCHA
+                            if (!auth) {
+                              throw new Error("Authentication service not initialized");
+                            }
+                            const newRecaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                              'size': 'invisible',
+                              'callback': () => {
+                                console.log("reCAPTCHA verified");
+                              },
+                              'expired-callback': () => {
+                                console.log("reCAPTCHA expired");
+                              }
+                            });
+                            (window as any).recaptchaVerifier = newRecaptchaVerifier;
+                          }
+                        });
+                        (window as any).recaptchaVerifier = recaptchaVerifier;
+                      }
 
                       const confirmationResult = await signInWithPhoneNumber(auth, pendingPhone, recaptchaVerifier);
                       setVerificationId(confirmationResult.verificationId);
