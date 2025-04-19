@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Image from "next/image";
+import { Icons } from "@/components/icons";
+import { Loader2, Image as ImageIcon } from "lucide-react";
 
 interface VendorData {
   id: string;
@@ -49,36 +54,56 @@ export default function VendorsList() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">All Vendors</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {vendors.map((vendor) => (
-          <Card key={vendor.id} className="p-6">
-            <div className="aspect-video w-full overflow-hidden rounded-md mb-4">
-              <img
-                src={vendor.images[0] || "/placeholder-image.jpg"}
-                alt={vendor.businessName}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <h2 className="text-xl font-semibold">{vendor.businessName}</h2>
-            <p className="text-gray-600 mt-1">{vendor.address}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {vendor.tags.slice(0, 3).map((tag, index) => (
-                <span key={index} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">
-                  {tag}
-                </span>
-              ))}
-            </div>
-            <Link 
-              href={`/vendor/${vendor.id}`}
-              className="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
-            >
-              View Profile
-            </Link>
-          </Card>
-        ))}
-      </div>
+      
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : vendors.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {vendors.map((vendor) => (
+            <Card key={vendor.id} className="overflow-hidden">
+              <div className="relative h-48">
+                {vendor.images && vendor.images.length > 0 ? (
+                  <Image
+                    src={vendor.images[0]}
+                    alt={vendor.businessName}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <ImageIcon className="h-12 w-12 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <h2 className="text-xl font-semibold mb-2">{vendor.businessName}</h2>
+                <p className="text-sm text-gray-500 mb-2">{vendor.address}</p>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {vendor.tags.map((tag, index) => (
+                    <Badge key={index} variant="outline" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex justify-between">
+                  <Link href={`/vendor/${vendor.id}`}>
+                    <Button variant="outline" size="sm">View Profile</Button>
+                  </Link>
+                  <Link href={`/vendor/${vendor.id}/dashboard`}>
+                    <Button variant="outline" size="sm">Dashboard</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <p className="text-center text-gray-500">No vendors found.</p>
+      )}
     </div>
   );
 } 
