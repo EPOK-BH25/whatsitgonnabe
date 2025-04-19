@@ -243,7 +243,7 @@ export default function Map({ vendors, userLocation, searchQuery, onMapLoaded }:
       let finalResults = results;
       if (userLocation) {
         finalResults = results.filter(({ lat, lon }) =>
-          haversineDistance(userLocation.lat, userLocation.lon, lat, lon) <= 20
+          haversineDistance(userLocation.lat, userLocation.lon, lat, lon) <= 10000
         );
         console.log(`📍 Filtered to ${finalResults.length} vendors within 20 miles of user`);
       }
