@@ -138,13 +138,6 @@ export default function Home() {
 
   return (
     <div className="h-screen w-screen flex flex-col">
-      <header className="flex justify-between items-center p-4 md:p-6 bg-black text-white">
-        <p className="font-bold text-xl">EPOK</p>
-        <Link href="/sign-up" className="flex items-center">
-          Sign Up <Icons.arrowRight className="h-4 w-4 ml-1" />
-        </Link>
-      </header>
-
       <div className="p-4 flex flex-wrap items-center gap-2">
         <Input
           type="text"
@@ -170,7 +163,7 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative z-0">
         <div className="w-[50%] border-r p-4 flex flex-col gap-4">
           <ScrollArea className="flex-1">
             <div className="space-y-4">
