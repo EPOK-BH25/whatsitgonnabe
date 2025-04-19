@@ -369,7 +369,7 @@ export default function Home() {
           </ScrollArea>
         </div>
 
-        {/* <div className="hidden md:flex flex-1 bg-gray-100 items-center justify-center">
+        <div className="hidden md:flex flex-1 bg-gray-100 items-center justify-center">
           {displayVendors.length > 0 ? (
             <Map
               vendors={displayVendors}
@@ -382,7 +382,7 @@ export default function Home() {
               <p className="text-gray-400 text-sm mt-2">Try adjusting your search filters.</p>
             </div>
           )}
-        </div> */}
+        </div>
       </div>
     </div>
   );
