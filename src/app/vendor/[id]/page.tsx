@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, MapPin, Home, Car, Instagram, Globe, Star, Clock, CreditCard, Edit } from "lucide-react";
 import Image from "next/image";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import "keen-slider/keen-slider.min.css";
+import { useKeenSlider } from "keen-slider/react";
 
 interface VendorData {
   id: string;
@@ -54,6 +56,49 @@ export default function VendorProfile() {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [activeTab, setActiveTab] = useState("about");
   const [selectedImage, setSelectedImage] = useState(0);
+
+  const [sliderRef] = useKeenSlider<HTMLDivElement>({
+    loop: true,
+    mode: "snap",
+    slides: {
+      perView: 1,
+    },
+  });
+
+
+  // Add this in your VendorProfile.tsx component to help debug image issues
+// Place it right after your state declarations but before any other useEffect
+
+// Debug function to check image URLs
+useEffect(() => {
+    if (vendor?.images && vendor.images.length > 0) {
+      console.log("🖼️ Found images in vendor data:", vendor.images.length);
+      
+      vendor.images.forEach((url, index) => {
+        console.log(`🖼️ Image ${index} URL:`, url);
+        
+        // Check if URL is valid
+        try {
+          const urlObj = new URL(url);
+          console.log(`✓ Image ${index} has valid URL format`);
+          
+          // Check for Firebase Storage URLs specifically
+          if (url.includes('firebasestorage.googleapis.com')) {
+            console.log(`✓ Image ${index} is a Firebase Storage URL`);
+            
+            // Check if URL has required parameters
+            if (!url.includes('alt=media')) {
+              console.log(`⚠️ Image ${index} is missing 'alt=media' parameter`);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Image ${index} has invalid URL format:`, url);
+        }
+      });
+    } else {
+      console.log("⚠️ No images found in vendor data");
+    }
+  }, [vendor]);
 
   useEffect(() => {
     const fetchVendorData = async () => {
@@ -107,6 +152,7 @@ export default function VendorProfile() {
     );
   }
 
+
   const getPaymentMethods = () => {
     const methods = [];
     if (vendor.paymentOptions.cash) methods.push("Cash");
@@ -150,37 +196,31 @@ export default function VendorProfile() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section with Photo Carousel */}
-      <div className="relative h-[400px] w-full bg-muted">
+      <div className="relative w-full bg-muted">
         {vendor?.images && vendor.images.length > 0 ? (
-          <Carousel className="w-full h-full">
-            <CarouselContent>
-              {vendor.images.map((image, index) => (
-                <CarouselItem key={index} className="relative h-[400px]">
-                  <Image
-                    src={image}
-                    alt={`${vendor.businessName} - Image ${index + 1}`}
-                    fill
-                    className="object-cover"
-                    priority={index === 0}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            {vendor.images.length > 1 && (
-              <>
-                <CarouselPrevious className="left-4" />
-                <CarouselNext className="right-4" />
-              </>
-            )}
-          </Carousel>
+          <div ref={sliderRef} className="keen-slider h-[400px] w-full overflow-hidden">
+            {vendor.images.map((imageUrl, index) => (
+              <div className="keen-slider__slide flex justify-center items-center aspect-square bg-muted" key={index}>
+                <img
+                  src={imageUrl}
+                  alt={`${vendor.businessName} - Image ${index + 1}`}
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    console.error(`Failed to load image ${index}:`, imageUrl);
+                    e.currentTarget.src = "https://via.placeholder.com/400x400?text=Image+Unavailable";
+                  }}
+                />
+              </div>
+
+            ))}
+          </div>
         ) : (
-          <div className="flex items-center justify-center h-full bg-muted">
+          <div className="flex items-center justify-center h-[400px] bg-muted">
             <span className="text-muted-foreground">No images available</span>
           </div>
         )}
       </div>
+
 
       <div className="container mx-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
