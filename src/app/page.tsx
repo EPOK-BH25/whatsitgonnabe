@@ -164,25 +164,50 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="flex flex-1 overflow-hidden relative z-0">
-        <div className="w-[50%] border-r p-4 flex flex-col gap-4">
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-full md:w-[50%] border-r p-4 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-500">
+              {loading ? "Loading..." : 
+               `Showing ${filteredVendors.length} ${filteredVendors.length === 1 ? 'vendor' : 'vendors'}`}
+            </p>
+            
+            {(selectedTags.length > 0) && (
+              <button 
+                onClick={() => {
+                  setSelectedTags([]);
+                }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+          
           <ScrollArea className="flex-1">
             {loading ? (
               <p className="text-gray-500 text-sm">Loading vendors...</p>
             ) : filteredVendors.length > 0 ? (
               <VendorsBentoGrid vendors={filteredVendors} />
             ) : (
-              <p className="text-gray-500 text-sm">No vendors found.</p>
+              <p className="text-gray-500 text-sm">No vendors found matching your criteria.</p>
             )}
           </ScrollArea>
         </div>
 
-        <div className="w-[50%] bg-gray-100">
-          <Map
-            vendors={filteredVendors}
-            userLocation={userLocation}
-            searchQuery={delayedQuery}
-          />
+        <div className="hidden md:flex flex-1 bg-gray-100">
+          {filteredVendors.length > 0 ? (
+            <Map
+              vendors={filteredVendors}
+              userLocation={userLocation}
+              searchQuery={delayedQuery}
+            />
+          ) : (
+            <div className="text-center">
+              <p className="text-gray-500">No locations to display on map.</p>
+              <p className="text-gray-400 text-sm mt-2">Try adjusting your search filters.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
