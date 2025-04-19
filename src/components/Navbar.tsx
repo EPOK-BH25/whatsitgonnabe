@@ -218,23 +218,43 @@ export default function Navbar() {
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth || !db) return;
     
     setIsLoading(true);
 
     try {
+      // Check if the phone number exists in the vendor collection
+      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+      const vendorsRef = collection(db, "vendor");
+      const q = query(vendorsRef, where("phoneNumber", "==", fullPhoneNumber));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        toast({
+          title: "Error",
+          description: "No vendor account found with this phone number. Please sign up first.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       if (!setupRecaptcha()) {
         setIsLoading(false);
         return;
       }
 
-      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
       console.log("Attempting to send verification code to:", fullPhoneNumber);
       
       const recaptchaVerifier = (window as any).recaptchaVerifier;
       if (!recaptchaVerifier) {
         throw new Error("reCAPTCHA not initialized");
       }
+
+      // Store the vendor ID for later use
+      const vendorDoc = querySnapshot.docs[0];
+      const vendorId = vendorDoc.id;
+      (window as any).pendingVendorId = vendorId;
 
       const confirmationResult = await signInWithPhoneNumber(
         auth,
@@ -267,7 +287,16 @@ export default function Navbar() {
     setIsLoading(true);
 
     try {
+      // Get the stored vendor ID
+      const vendorId = (window as any).pendingVendorId;
+      if (!vendorId) {
+        throw new Error("Vendor ID not found. Please try again.");
+      }
+
+      // Verify the code
       const credential = PhoneAuthProvider.credential(verificationId, verificationCode);
+      
+      // Sign in with the credential
       await signInWithCredential(auth, credential);
       
       toast({

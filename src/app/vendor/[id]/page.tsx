@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, getDocs, query, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, orderBy, addDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -289,84 +289,23 @@ useEffect(() => {
     }
   };
 
-  // Handle review submission
-  const handleReviewSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!isPhoneVerified) {
-      setShowVerificationInput(true);
-      toast.info("Please verify your phone number");
-      return;
+  const setupRecaptcha = () => {
+    if (!auth) {
+      toast.error("Authentication service not available");
+      return false;
     }
     
-    if (!reviewName || !reviewComment) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    // Check if the reviewer's phone number matches the vendor's phone number
-    const reviewerPhoneNumber = `${reviewCountryCode}${reviewPhone.replace(/\D/g, '')}`;
-    if (vendor && reviewerPhoneNumber === vendor.phoneNumber) {
-      toast.error("You cannot review your own business");
-      setShowReviewForm(false);
-      setIsPhoneVerified(false);
-      setShowVerificationInput(false);
-      setReviewPhone("");
-      setReviewName("");
-      setReviewComment("");
-      setReviewRating(5);
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      // Add the review to Firestore
-      if (!db) {
-        toast.error("Database connection error. Please try again later.");
-        return;
-      }
-      
-      const reviewsRef = collection(db, "vendor", vendorId, "reviews");
-      await addDoc(reviewsRef, {
-        name: reviewName,
-        star: reviewRating,
-        contents: reviewComment,
-        createdAt: serverTimestamp(),
-        phoneVerified: true,
-        phoneNumber: reviewerPhoneNumber // Store the reviewer's phone number for future reference
+    if (!(window as any).recaptchaVerifier) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response: any) => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
       });
-      
-      // Refresh reviews
-      const reviewsQuery = query(reviewsRef, orderBy("createdAt", "desc"));
-      const reviewsSnap = await getDocs(reviewsQuery);
-      
-      const reviewsData = reviewsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
-      })) as ReviewData[];
-      
-      setReviews(reviewsData);
-      
-      // Reset form
-      setReviewName("");
-      setReviewComment("");
-      setReviewRating(5);
-      setShowReviewForm(false);
-      setIsPhoneVerified(false);
-      setShowVerificationInput(false);
-      setReviewPhone("");
-      
-      toast.success("Review submitted successfully!");
-    } catch (error) {
-      console.error("Error submitting review:", error);
-      toast.error("Failed to submit review. Please try again.");
-    } finally {
-      setIsSubmitting(false);
     }
+    return true;
   };
-  
+
   // Update the handlePhoneVerification function to check for self-review
   const handlePhoneVerification = async () => {
     if (!reviewPhone) {
@@ -398,6 +337,7 @@ useEffect(() => {
         return;
       }
       
+      // Use a temporary anonymous session for verification
       const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
       (window as any).confirmationResult = confirmationResult;
       setShowVerificationInput(true);
@@ -427,21 +367,70 @@ useEffect(() => {
     }
   };
 
-  const setupRecaptcha = () => {
-    if (!auth) {
-      toast.error("Authentication service not available");
-      return false;
-    }
-    
-    if (!(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response: any) => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
+  // Handle review submission
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth || !db) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Check if the user is the vendor owner
+      if (auth.currentUser) {
+        const userPhoneNumber = auth.currentUser.phoneNumber;
+        if (userPhoneNumber && vendor && userPhoneNumber === vendor.phoneNumber) {
+          toast.error("You cannot review your own business");
+          setIsSubmitting(false);
+          return;
         }
+      }
+
+      // Check if phone is verified
+      if (!isPhoneVerified) {
+        toast.error("Please verify your phone number before submitting a review");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const reviewData = {
+        rating: reviewRating,
+        comment: reviewComment,
+        createdAt: new Date().toISOString(),
+        userId: auth.currentUser?.uid || 'anonymous',
+        userName: reviewName || 'Anonymous User',
+        phoneVerified: true,
+        phoneNumber: `${reviewCountryCode}${reviewPhone.replace(/\D/g, '')}`
+      };
+
+      const vendorRef = doc(db, "vendor", vendorId);
+      const vendorDoc = await getDoc(vendorRef);
+      
+      if (!vendorDoc.exists()) {
+        throw new Error("Vendor not found");
+      }
+
+      const vendorData = vendorDoc.data();
+      const reviews = vendorData.reviews || [];
+      
+      await updateDoc(vendorRef, {
+        reviews: [...reviews, reviewData],
       });
+
+      toast.success("Your review has been submitted.");
+
+      // Reset form
+      setReviewRating(5);
+      setReviewComment("");
+      setReviewName("");
+      setReviewPhone("");
+      setIsPhoneVerified(false);
+      setIsSubmitting(false);
+      setShowReviewForm(false);
+    } catch (error: any) {
+      console.error("Error submitting review:", error);
+      toast.error(error.message || "Failed to submit review");
+      setIsSubmitting(false);
     }
-    return true;
   };
 
   return (
