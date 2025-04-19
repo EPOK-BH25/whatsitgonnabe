@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Vendor } from "../../core/interface";
+import { Vendor } from "../core/interface";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Dynamically import Map component with SSR disabled
@@ -277,65 +277,74 @@ export default function Home() {
   }, [searchQuery]);
 
   const filteredVendors = useMemo(() => {
-  console.log("Filtering vendors with:");
-  console.log(`- Selected categories: ${selectedCategories.join(', ')}`);
-  console.log(`- Selected subtags: ${selectedSubTags.join(', ')}`);
-  console.log(`- Search query: ${searchQuery}`);
+    console.log("Filtering vendors with:");
+    console.log(`- Selected categories: ${selectedCategories.join(', ')}`);
+    console.log(`- Selected subtags: ${selectedSubTags.join(', ')}`);
+    console.log(`- Search query: ${searchQuery}`);
 
-  if (vendors.length === 0) {
-    console.log("No vendors to filter");
-    return [];
-  }
+    if (vendors.length === 0) {
+      console.log("No vendors to filter");
+      return [];
+    }
 
-  const results = vendors.filter((vendor) => {
-    if (!vendor.address) return false;
+    const results = vendors.filter((vendor) => {
+      if (!vendor.address) return false;
 
-    // Location filter
-    const addressParts = vendor.address.split(',');
-    const city = addressParts[1]?.trim().toLowerCase() || '';
-    const state = addressParts[2]?.trim().toLowerCase() || '';
-    const query = searchQuery.toLowerCase();
-    const matchesCityOrState = !query || city.includes(query) || state.includes(query);
-    if (!matchesCityOrState) return false;
+      // Location filter
+      const addressParts = vendor.address.split(',');
+      const city = addressParts[1]?.trim().toLowerCase() || '';
+      const state = addressParts[2]?.trim().toLowerCase() || '';
+      const query = searchQuery.toLowerCase();
+      const lowerQuery = query.toLowerCase();
 
-    // Convert vendor tags to lowercase for case-insensitive comparison
-    const vendorTags = (vendor.tags || []).map(tag => tag.toLowerCase());
+      // Check if vendor matches search query
+      const matchesSearch = !query ||
+        city.includes(lowerQuery) ||
+        state.includes(lowerQuery) ||
+        vendor.businessName.toLowerCase().includes(lowerQuery) ||
+        vendor.tags.some(tag => tag.toLowerCase().includes(lowerQuery));
 
-    // If no categories selected, return all vendors
-    if (selectedCategories.length === 0) return true;
+      // If doesn't match search query, exclude it immediately
+      if (!matchesSearch) return false;
 
-    // Filter by category and subtag combo
-    return selectedCategories.some((category) => {
-      const categoryKey = category.toLowerCase();
-      const hasCategoryTag = vendorTags.includes(categoryKey);
+      // Convert vendor tags to lowercase for case-insensitive comparison
+      const vendorTags = (vendor.tags || []).map(tag => tag.toLowerCase());
 
-      // If no subtags selected → only check for category tag
-      if (selectedSubTags.length === 0) {
-        return hasCategoryTag;
-      }
+      // If no categories selected, return all vendors that match search
+      if (selectedCategories.length === 0) return true;
 
-      // Only consider subtags from this category
-      const categorySubtags = nestedTags[category].map(tag => tag.toLowerCase()) || [];
-      const activeSubtagsForCategory = selectedSubTags.map(tag => tag.toLowerCase()).filter((tag) =>
-        categorySubtags.includes(tag)
-      );
+      // Filter by category and subtag combo
+      return selectedCategories.some((category) => {
+        const categoryKey = category.toLowerCase();
+        const hasCategoryTag = vendorTags.includes(categoryKey);
 
-      // If subtags selected for this category → must match category AND one subtag
-      if (activeSubtagsForCategory.length > 0) {
-        return (
-          hasCategoryTag &&
-          activeSubtagsForCategory.some((subtag) => vendorTags.includes(subtag))
+        // If no subtags selected → only check for category tag
+        if (selectedSubTags.length === 0) {
+          return hasCategoryTag;
+        }
+
+        // Only consider subtags from this category
+        const categorySubtags = nestedTags[category].map(tag => tag.toLowerCase()) || [];
+        const activeSubtagsForCategory = selectedSubTags.map(tag => tag.toLowerCase()).filter((tag) =>
+          categorySubtags.includes(tag)
         );
-      }
 
-      // Fallback to category-only match
-      return hasCategoryTag;
+        // If subtags selected for this category → must match category AND one subtag
+        if (activeSubtagsForCategory.length > 0) {
+          return (
+            hasCategoryTag &&
+            activeSubtagsForCategory.some((subtag) => vendorTags.includes(subtag))
+          );
+        }
+
+        // Fallback to category-only match
+        return hasCategoryTag;
+      });
     });
-  });
 
-  console.log(`Filtered vendors: ${results.length} out of ${vendors.length}`);
-  return results;
-}, [vendors, selectedCategories, selectedSubTags, searchQuery, filterApplied]);
+    console.log(`Filtered vendors: ${results.length} out of ${vendors.length}`);
+    return results;
+  }, [vendors, selectedCategories, selectedSubTags, searchQuery, filterApplied]);
 
 
   const displayVendors = useMemo(() => {
@@ -466,7 +475,7 @@ export default function Home() {
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+            <div className="grid grid-cols-1 gap-6 p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-500">Loading vendors...</p>
