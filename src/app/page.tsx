@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { VendorsBentoGrid } from "@/components/vendors-bento-grid";
 
 // Dynamically import Map component with SSR disabled
 const Map = dynamic(() => import("@/components/map").then((mod) => mod.default), { ssr: false });
@@ -166,17 +167,13 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden relative z-0">
         <div className="w-[50%] border-r p-4 flex flex-col gap-4">
           <ScrollArea className="flex-1">
-            <div className="space-y-4">
-              {loading ? (
-                <p className="text-gray-500 text-sm">Loading vendors...</p>
-              ) : filteredVendors.length > 0 ? (
-                filteredVendors.map((vendor) => (
-                  <VendorCard key={vendor.id} {...vendor} />
-                ))
-              ) : (
-                <p className="text-gray-500 text-sm">No vendors found.</p>
-              )}
-            </div>
+            {loading ? (
+              <p className="text-gray-500 text-sm">Loading vendors...</p>
+            ) : filteredVendors.length > 0 ? (
+              <VendorsBentoGrid vendors={filteredVendors} />
+            ) : (
+              <p className="text-gray-500 text-sm">No vendors found.</p>
+            )}
           </ScrollArea>
         </div>
 
