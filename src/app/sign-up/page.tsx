@@ -61,12 +61,7 @@ const formSchema = z.object({
   phone: z.string().min(10),
   username: z.string().min(3),
   countryCode: z.string(),
-  password: z.string().min(8),
-  passwordConfirm: z.string(),
   code: z.string().optional()
-}).refine((data) => data.password === data.passwordConfirm, {
-  message: "Passwords don't match",
-  path: ["passwordConfirm"],
 });
 
 const formatPhoneNumber = (value: string, countryCode: string) => {
@@ -107,8 +102,6 @@ const SignUp = () => {
     defaultValues: {
       phone: "",
       countryCode: "+1", // Default to US
-      password: "",
-      passwordConfirm: "",
       code: "",
       username: "vendor_" + Math.random().toString(36).substring(2, 8), // Generate a random username
     },
@@ -125,25 +118,6 @@ const SignUp = () => {
     });
     return () => subscription.unsubscribe();
   }, [form]);
-
-  // Password validation states
-  const [hasLowercase, setHasLowercase] = useState(false);
-  const [hasUppercase, setHasUppercase] = useState(false);
-  const [hasNumber, setHasNumber] = useState(false);
-  const [hasSpecialChar, setHasSpecialChar] = useState(false);
-  const [isMinLength, setIsMinLength] = useState(false);
-
-  // Get the current password value from the form
-  const passwordValue = form.watch("password");
-
-  // Update validation states when password changes
-  useEffect(() => {
-    setHasLowercase(/[a-z]/.test(passwordValue));
-    setHasUppercase(/[A-Z]/.test(passwordValue));
-    setHasNumber(/[0-9]/.test(passwordValue));
-    setHasSpecialChar(/[^a-zA-Z0-9\s]/.test(passwordValue));
-    setIsMinLength(passwordValue.length >= 8);
-  }, [passwordValue]);
 
   useEffect(() => {
     if (typeof window === "undefined") return; // ✅ Prevent SSR crash
@@ -251,9 +225,8 @@ const SignUp = () => {
           throw new Error("Authentication service not initialized");
         }
 
-        // Store the phone number and password temporarily
+        // Store the phone number temporarily
         localStorage.setItem('pendingPhone', `${data.countryCode}${data.phone}`);
-        localStorage.setItem('pendingPassword', data.password);
 
         // Create a temporary user to send verification
         const phoneNumber = `${data.countryCode}${data.phone}`;
@@ -381,34 +354,12 @@ const SignUp = () => {
             Create an account
           </h1>
           <p className="text-sm text-muted-foreground">
-            {stage === "phone" && "Enter your phone number and password to create an account."}
+            {stage === "phone" && "Enter your phone number to create an account."}
             {stage === "code" && "Please verify your phone number to continue."}
           </p>
         </div>
         <Form {...form}>
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              console.log("Form submit event triggered");
-              console.log("Form state:", form.formState);
-              console.log("Form values:", form.getValues());
-              console.log("Form errors:", form.formState.errors);
-              
-              if (form.formState.isSubmitting) {
-                console.log("Form is already submitting");
-                return;
-              }
-              
-              try {
-                const values = form.getValues();
-                console.log("Submitting form with values:", values);
-                handleSubmit(values);
-              } catch (error) {
-                console.error("Error in form submission:", error);
-              }
-            }} 
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             {stage === "phone" && (
               <>
                 <div className="flex space-x-2">
@@ -418,10 +369,7 @@ const SignUp = () => {
                     render={({ field }) => (
                       <FormItem className="w-[100px]">
                         <FormLabel>Code</FormLabel>
-                        <Select onValueChange={(value) => {
-                          field.onChange(value);
-                          console.log("Country code changed:", value);
-                        }} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Code" />
@@ -453,17 +401,13 @@ const SignUp = () => {
                               {...field}
                               value={formatPhoneNumber(field.value, countryCode)}
                               onChange={(e) => {
-                                // Only allow digits
                                 const digits = e.target.value.replace(/\D/g, '');
-                                // Limit length based on country
                                 const maxLength = countryCode === '+1' ? 10 : 10;
                                 if (digits.length <= maxLength) {
                                   field.onChange(digits);
-                                  console.log("Phone number changed:", digits);
                                 }
                               }}
                               onKeyPress={(e) => {
-                                // Only allow numbers
                                 if (!/^\d$/.test(e.key)) {
                                   e.preventDefault();
                                 }
@@ -478,93 +422,6 @@ const SignUp = () => {
                 </div>
                 {/* Invisible reCAPTCHA container */}
                 <div id="recaptcha-container" className="sr-only"></div>
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="password" 
-                          {...field} 
-                          onChange={(e) => {
-                            field.onChange(e);
-                            console.log("Password changed:", e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Password must contain:</p>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li
-                      className={cn({
-                        "text-green-500": hasLowercase,
-                        "text-muted-foreground": !hasLowercase,
-                      })}
-                    >
-                      At least one lowercase letter
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasUppercase,
-                        "text-muted-foreground": !hasUppercase,
-                      })}
-                    >
-                      At least one uppercase letter
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasNumber,
-                        "text-muted-foreground": !hasNumber,
-                      })}
-                    >
-                      At least one number
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": hasSpecialChar,
-                        "text-muted-foreground": !hasSpecialChar,
-                      })}
-                    >
-                      At least one special character
-                    </li>
-                    <li
-                      className={cn({
-                        "text-green-500": isMinLength,
-                        "text-muted-foreground": !isMinLength,
-                      })}
-                    >
-                      At least 8 characters
-                    </li>
-                  </ul>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="passwordConfirm"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="password" 
-                          {...field} 
-                          onChange={(e) => {
-                            field.onChange(e);
-                            console.log("Password confirm changed:", e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </>
             )}
 
@@ -592,7 +449,7 @@ const SignUp = () => {
               {isLoading && (
                 <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
               )}
-              {stage === "phone" && "Create Account"}
+              {stage === "phone" && "Continue"}
               {stage === "code" && "Verify Phone"}
             </Button>
 
@@ -615,10 +472,8 @@ const SignUp = () => {
                     }
 
                     try {
-                      // Use the existing reCAPTCHA verifier if available
                       let recaptchaVerifier = (window as any).recaptchaVerifier;
                       
-                      // If not available, create a new one
                       if (!recaptchaVerifier) {
                         if (!auth) {
                           throw new Error("Authentication service not initialized");
@@ -630,7 +485,6 @@ const SignUp = () => {
                           },
                           'expired-callback': () => {
                             console.log("reCAPTCHA expired");
-                            // Silently refresh the reCAPTCHA
                             if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
                               try {
                                 (window as any).recaptchaVerifier.clear();
@@ -639,7 +493,6 @@ const SignUp = () => {
                               }
                               (window as any).recaptchaVerifier = undefined;
                             }
-                            // Re-initialize the reCAPTCHA
                             if (!auth) {
                               throw new Error("Authentication service not initialized");
                             }
