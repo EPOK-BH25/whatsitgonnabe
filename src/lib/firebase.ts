@@ -47,10 +47,11 @@ if (typeof window !== 'undefined') {
 
     // Connect to emulators in development
     if (process.env.NODE_ENV === 'development') {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      connectAuthEmulator(auth, 'http://localhost:9099');
-      connectStorageEmulator(storage, 'localhost', 9199);
-      console.log("Connected to Firebase emulators");
+      // Comment out emulator connections to use production environment
+      // connectFirestoreEmulator(db, 'localhost', 8080);
+      // connectAuthEmulator(auth, 'http://localhost:9099');
+      // connectStorageEmulator(storage, 'localhost', 9199);
+      console.log("Using production Firebase environment");
     }
   } catch (error) {
     console.error("Error initializing Firebase:", error);
