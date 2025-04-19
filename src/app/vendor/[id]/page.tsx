@@ -294,6 +294,9 @@ useEffect(() => {
       setIsPhoneVerified(false);
       setShowVerificationInput(false);
       setReviewPhone("");
+      setReviewName("");
+      setReviewComment("");
+      setReviewRating(5);
       return;
     }
     
@@ -346,7 +349,7 @@ useEffect(() => {
     }
   };
   
-  // Update the handlePhoneVerification function
+  // Update the handlePhoneVerification function to check for self-review
   const handlePhoneVerification = async () => {
     if (!reviewPhone) {
       toast.error("Please enter your phone number");
@@ -363,6 +366,20 @@ useEffect(() => {
       
       const appVerifier = (window as any).recaptchaVerifier;
       const fullPhoneNumber = `${reviewCountryCode}${reviewPhone.replace(/\D/g, '')}`;
+      
+      // Check if the phone number matches the vendor's phone number before sending verification
+      if (vendor && fullPhoneNumber === vendor.phoneNumber) {
+        toast.error("You cannot review your own business");
+        setShowReviewForm(false);
+        setIsPhoneVerified(false);
+        setShowVerificationInput(false);
+        setReviewPhone("");
+        setReviewName("");
+        setReviewComment("");
+        setReviewRating(5);
+        return;
+      }
+      
       const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, appVerifier);
       (window as any).confirmationResult = confirmationResult;
       setShowVerificationInput(true);
