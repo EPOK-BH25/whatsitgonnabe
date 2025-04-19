@@ -145,22 +145,24 @@ const SignUp = () => {
     setIsMinLength(passwordValue.length >= 8);
   }, [passwordValue]);
 
-  // Initialize reCAPTCHA verifier
   useEffect(() => {
+    if (typeof window === "undefined") return; // ✅ Prevent SSR crash
+
     if (stage === "phone" && auth) {
       try {
         console.log("Setting up reCAPTCHA...");
+
         // Clear any existing verifier
         if ((window as any).recaptchaVerifier) {
           try {
             (window as any).recaptchaVerifier.clear();
           } catch (e) {
-            console.warn("recaptcha already cleared:", e);
+            console.warn("reCAPTCHA already cleared:", e);
           }
           (window as any).recaptchaVerifier = undefined;
         }
-        
-        // Create an invisible reCAPTCHA verifier
+
+        // Create a new invisible reCAPTCHA verifier
         const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: (response: any) => {
@@ -176,9 +178,10 @@ const SignUp = () => {
           }
         });
 
-        // Store the verifier
+        // Store it globally
         (window as any).recaptchaVerifier = recaptchaVerifier;
         console.log("reCAPTCHA setup complete");
+
       } catch (error) {
         console.error("Error setting up reCAPTCHA:", error);
         toast({
@@ -191,17 +194,17 @@ const SignUp = () => {
 
     // Cleanup function
     return () => {
-      if ((window as any).recaptchaVerifier) {
+      if (typeof window !== "undefined" && (window as any).recaptchaVerifier) {
         try {
           (window as any).recaptchaVerifier.clear();
         } catch (e) {
-          console.warn("recaptcha already cleared:", e);
+          console.warn("reCAPTCHA already cleared:", e);
         }
-        // Remove it so we don't clear twice
         (window as any).recaptchaVerifier = undefined;
       }
     };
   }, [stage, auth]);
+
 
   // Enable debug logging
   useEffect(() => {
