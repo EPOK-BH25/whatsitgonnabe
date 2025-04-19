@@ -2,7 +2,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useState } from 'react';
-
+import { VendorCard } from "@/components/vendors-card";
+import Link from "next/link";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -152,7 +153,9 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
 
 
   const defaultCenter: [number, number] = [34.0522, -118.2437]; // Los Angeles center
-
+  const handleMarkerClick = (vendorId: string) => {
+    window.location.href = `/vendor/${vendorId}`;
+  }
 
   return (
     <MapContainer center={defaultCenter} zoom={10} style={{ height: '100%', width: '100%' }}>
@@ -193,6 +196,7 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
             eventHandlers={{
               mouseover: (e) => e.target.openPopup(), // Show on hover
               mouseout: (e) => e.target.closePopup(), // Hide on mouse out
+              click: () => handleMarkerClick(vendor.id),
             }}
           >
             <Popup>
