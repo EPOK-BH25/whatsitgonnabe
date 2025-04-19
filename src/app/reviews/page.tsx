@@ -13,7 +13,7 @@ const reviewSchema = z.object({
   rating: z.number().min(1, "Rating must be between 1 and 5").max(5),
 });
 
-const ReviewsPage = () => {
+const ReviewsPage = ({ companyName }: { companyName: string }) => {
   const [rating, setRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const { register, handleSubmit, formState: { errors } } = useForm({
@@ -34,13 +34,14 @@ const ReviewsPage = () => {
 
   const onSubmit = (data: any) => {
     // Handle form submission, e.g., send data to Firebase
-    console.log("Review submitted:", { ...data, rating });
+    console.log("Review submitted:", { ...data, rating, companyName });
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-        <h1 className="text-2xl font-semibold text-center mb-6">Leave a Review</h1>
+        {/* Display the company name at the top */}
+        <h1 className="text-2xl font-semibold text-center mb-6">{companyName}</h1>
 
         {/* Review Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
