@@ -140,7 +140,7 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { href: "/", label: "Services" },
+    { href: "/", label: "Home" },
     ...(user ? [{ href: "/vendor-dashboard", label: "Vendor Dashboard", onClick: handleVendorDashboardClick }] : []),
     { href: "/about-me", label: "About the Team" },
   ];
