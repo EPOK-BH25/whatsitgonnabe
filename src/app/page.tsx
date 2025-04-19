@@ -466,7 +466,7 @@ export default function Home() {
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+            <div className="grid grid-cols-1 gap-6 p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-500">Loading vendors...</p>
