@@ -454,14 +454,16 @@ export default function Home() {
           </ScrollArea>
         </div>
 
-        <div className="hidden md:flex flex-1 bg-gray-100 items-center justify-center">
+        <div className="hidden md:flex flex-1 items-center justify-center p-4">
           {displayVendors.length > 0 ? (
-            <Map
-              vendors={displayVendors}
-              userLocation={userLocation}
-              searchQuery={delayedQuery}
-              onMapLoaded={handleMapLoaded}
-            />
+            <div className="w-full h-full relative z-0">
+              <Map
+                vendors={displayVendors}
+                userLocation={userLocation}
+                searchQuery={delayedQuery}
+                onMapLoaded={handleMapLoaded}
+              />
+            </div>
           ) : (
             <div className="text-center">
               <p className="text-gray-500">No locations to display on map.</p>

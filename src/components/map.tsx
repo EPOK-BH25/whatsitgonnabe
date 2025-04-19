@@ -262,41 +262,58 @@ export default function Map({ vendors, userLocation, searchQuery, onMapLoaded }:
   const defaultCenter: [number, number] = [34.0522, -118.2437];
 
   return (
-    <div className="relative h-full w-full">
-      <MapContainer 
-        center={defaultCenter} 
-        zoom={10} 
-        style={{ height: '100%', width: '100%' }}
+    <div className="w-full h-full rounded-lg overflow-hidden">
+      <MapContainer
+        center={[40.7128, -74.0060]}
+        zoom={13}
+        className="w-full h-full"
         ref={mapRef}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <SetViewToCurrentLocation onLocationFound={() => {}} />
-        {userLocation && (
-          <Marker position={[userLocation.lat, userLocation.lon]} icon={redIcon}>
-            <Popup><strong>You are here</strong></Popup>
-          </Marker>
-        )}
-        {vendorLocations.map(({ lat, lon, vendor }, i) => (
+        {vendorLocations.map((location) => (
           <Marker
-            key={`${vendor.id}-${i}`}
-            position={[lat, lon]}
-            data-vendor-id={vendor.id}
-            eventHandlers={{
-              mouseover: (e) => e.target.openPopup(),
-              mouseout: (e) => e.target.closePopup()
-            }}
+            key={location.vendor.id}
+            position={[location.lat, location.lon]}
+            icon={redIcon}
+            data-vendor-id={location.vendor.id}
           >
             <Popup>
-              <div>
-                <strong>{vendor.businessName}</strong>
-                <div className="text-sm">{vendor.address}</div>
+              <div className="p-2">
+                <h3 className="font-semibold">{location.vendor.businessName}</h3>
+                <p className="text-sm">{location.vendor.address}</p>
               </div>
             </Popup>
           </Marker>
         ))}
+        {userLocation && (
+          <Marker
+            position={[userLocation.lat, userLocation.lon]}
+            icon={new L.Icon({
+              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+              shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowSize: [41, 41],
+            })}
+          >
+            <Popup>
+              <div className="p-2">
+                <p className="text-sm">Your location</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+        <SetViewToCurrentLocation
+          onLocationFound={(coords) => {
+            if (mapRef.current) {
+              mapRef.current.setView(coords, 12);
+            }
+          }}
+        />
       </MapContainer>
       {loading && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-2 rounded shadow">Loading vendor locations...</div>}
       {geocodingError && !loading && <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white p-2 rounded shadow">⚠️ Geocoding error occurred.</div>}
