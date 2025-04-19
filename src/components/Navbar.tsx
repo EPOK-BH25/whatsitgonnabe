@@ -1,9 +1,11 @@
 "use client";
 
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+
 
 // --- Modal Component ---
 function Modal({ isOpen, onClose, children }: { isOpen: boolean; onClose: () => void; children: React.ReactNode }) {
@@ -15,7 +17,9 @@ function Modal({ isOpen, onClose, children }: { isOpen: boolean; onClose: () => 
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+
   if (!isOpen) return null;
+
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -32,16 +36,19 @@ function Modal({ isOpen, onClose, children }: { isOpen: boolean; onClose: () => 
   );
 }
 
+
 // --- Navbar Component ---
 export default function Navbar() {
   const pathname = usePathname();
   const [showLoginModal, setShowLoginModal] = useState(false);
+
 
   const navLinks = [
     { href: "/", label: "Services" },
     { href: "/vendor-dashboard", label: "Vendor Dashboard" },
     { href: "/about-me", label: "About the Team" },
   ];
+
 
   return (
     <>
@@ -54,6 +61,7 @@ export default function Navbar() {
                 EPOK
               </Link>
             </div>
+
 
             {/* Center Navigation Links */}
             <div className="hidden md:block">
@@ -74,6 +82,7 @@ export default function Navbar() {
                 ))}
               </div>
             </div>
+
 
             {/* Sign Up & Log In */}
             <div className="flex items-center">
@@ -96,6 +105,7 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
+
 
       {/* Login Modal */}
       <Modal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)}>
