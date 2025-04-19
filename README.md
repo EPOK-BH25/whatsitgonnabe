@@ -2,11 +2,10 @@
 
 # EPOK  Broncohacks 2025
 ## Demo Video
-<video width="640" height="360" controls>
-  <source src="Minty Exterior Script.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
 
+[![Watch the video](https://img.youtube.com/vi/HjZriumtGn8/0.jpg)](https://www.youtube.com/watch?v=HjZriumtGn8)
+
+- [Youtube Video Link](https://youtu.be/HjZriumtGn8)
 ## Developers
 - Truc Nguyen
 - Ethan Tarrer
@@ -15,7 +14,7 @@
 
 ## Motivation
 
-In today's fast-paced world, small and independent businesses often lack visibility and discoverability despite offering valuable services. whatsitgonnabe was built to bridge that gap — empowering both vendors and users with a simple yet powerful platform that facilitates service discovery, trust, and engagement.
+In today's fast-paced world, small and independent businesses often lack visibility and discoverability despite offering valuable services. MINTY EXTERIOR was built to bridge that gap — empowering both vendors and users with a simple yet powerful platform that facilitates service discovery, trust, and engagement.
 
 We wanted to:
 
