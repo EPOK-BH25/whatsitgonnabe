@@ -57,7 +57,7 @@ export function VendorCard({
       ref={cardRef}
       onClick={handleCardClick}
       className={cn(
-        "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition"
+        "p-4 space-y-2 shadow-md cursor-pointer hover:shadow-lg transition bg-[#D2EFE2]"
       )}
     >
       <div className="flex items-start gap-4">
@@ -71,8 +71,8 @@ export function VendorCard({
             />
           </div>
         ) : (
-          <div className="w-16 h-16 rounded bg-gray-200 flex-shrink-0 flex items-center justify-center">
-            <span className="text-gray-400 text-xs">No image</span>
+          <div className="w-16 h-16 rounded bg-[#B8E5D0] flex-shrink-0 flex items-center justify-center">
+            <span className="text-[#4A8A6F] text-xs">No image</span>
           </div>
         )}
         <div className="flex-1">
@@ -111,7 +111,11 @@ export function VendorCard({
 
       <div className="flex flex-wrap gap-2">
         {tags.map((tag, index) => (
-          <Badge key={index} variant="outline">
+          <Badge 
+            key={index} 
+            variant="outline"
+            className="bg-[#B8E5D0] text-[#2A6A4F] border-[#A8D5C0] hover:bg-[#A8D5C0]"
+          >
             {tag}
           </Badge>
         ))}
@@ -119,42 +123,42 @@ export function VendorCard({
 
       <div className="flex flex-col gap-2">
         {offersHome && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Home className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-2 text-sm text-[#2A6A4F]">
+            <Home className="h-4 w-4 text-[#3A7A5F]" />
             <span>Home services available</span>
-            <Check className="h-3 w-3 text-green-500 ml-1" />
+            <Check className="h-3 w-3 text-[#4A8A6F] ml-1" />
           </div>
         )}
         {offersDrive && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Car className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-2 text-sm text-[#2A6A4F]">
+            <Car className="h-4 w-4 text-[#3A7A5F]" />
             <span>Drive-in services available</span>
-            <Check className="h-3 w-3 text-green-500 ml-1" />
+            <Check className="h-3 w-3 text-[#4A8A6F] ml-1" />
           </div>
         )}
       </div>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-[#2A6A4F]">
         {city}, {state}
       </p>
 
       {expanded && (
         <div className="mt-3 space-y-2">
           <div>
-            <p className="font-semibold text-sm">Contact:</p>
-            <p className="text-sm text-gray-700">{email}</p>
-            <p className="text-sm text-gray-700">{phoneNumber}</p>
+            <p className="font-semibold text-sm text-[#1A5A3F]">Contact:</p>
+            <p className="text-sm text-[#2A6A4F]">{email}</p>
+            <p className="text-sm text-[#2A6A4F]">{phoneNumber}</p>
           </div>
 
           {amenities.length > 0 && (
             <div>
-              <p className="font-semibold text-sm">Accepted Payments:</p>
+              <p className="font-semibold text-sm text-[#1A5A3F]">Accepted Payments:</p>
               <div className="flex flex-wrap gap-2 mt-1">
                 {amenities.map((item, index) => (
                   <Badge
                     key={index}
                     variant="secondary"
-                    className="text-xs px-3 py-1"
+                    className="text-xs px-3 py-1 bg-[#B8E5D0] text-[#2A6A4F] hover:bg-[#A8D5C0]"
                   >
                     {item}
                   </Badge>
