@@ -28,7 +28,7 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4">Supporting Your Up and Coming Beauty Professionals</h3>
+            <h3 className="text-lg font-semibold mb-4">About Us</h3>
             <p className="text-sm">
               We connect beauty professionals with clients, making it easy to find
               and book services.

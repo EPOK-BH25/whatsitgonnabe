@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { doc, setDoc, updateDoc, serverTimestamp, setLogLevel, connectFirestoreEmulator } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp, setLogLevel, connectFirestoreEmulator, getDoc } from "firebase/firestore";
 
 // Country codes data
 const countryCodes = [
@@ -252,16 +252,37 @@ const SignUp = () => {
         if (!user) {
           throw new Error("Failed to create user");
         }
-        
-        // Create the user profile in Firestore with incremental writes
-        try {
-          if (!db) {
-            throw new Error("Firestore is not initialized");
-          }
+
+        // Check if user already exists in Firestore
+        if (!db) {
+          throw new Error("Firestore is not initialized");
+        }
+
+        const userDoc = doc(db, 'profiles', user.uid);
+        const userSnap = await getDoc(userDoc);
+
+        if (userSnap.exists()) {
+          // User exists, just log them in and redirect to their vendor dashboard
+          console.log("User already exists, logging in...");
           
+          // Get the vendor document
+          const vendorDoc = doc(db, 'vendor', user.uid);
+          const vendorSnap = await getDoc(vendorDoc);
+
+          if (vendorSnap.exists()) {
+            // User has a vendor profile, redirect to dashboard
+            router.push(`/vendor/${user.uid}/dashboard`);
+          } else {
+            // User exists but no vendor profile, redirect to setup
+            router.push(`/vendor/${user.uid}/setup`);
+          }
+          return;
+        }
+        
+        // User doesn't exist, create new profile
+        try {
           // Step 1: Basic write with just uid
           console.log("Step 1: Writing basic profile with uid");
-          const userDoc = doc(db, 'profiles', user.uid);
           await setDoc(userDoc, {
             uid: user.uid
           });
