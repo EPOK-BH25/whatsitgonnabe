@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Icons } from "@/components/icons";
 
@@ -11,6 +10,15 @@ export default function Home() {
       >
         Sign Up <Icons.arrowRight className="h-4 w-4" />
       </Link>
+
+      {/* Link to reviews page, positioned below the Sign Up link */}
+      <Link
+        href="/reviews"
+        className="absolute right-4 top-16 md:right-8 md:top-20 flex items-center"
+      >
+        Reviews <Icons.arrowRight className="h-4 w-4" />
+      </Link>
+
       <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
         <div className="flex flex-col space-y-2 text-center">
           <Icons.shield className="mx-auto h-6 w-6" />
@@ -21,10 +29,8 @@ export default function Home() {
             Enter your phone number and password to authenticate.
           </p>
         </div>
-        {/*
-          Commented out to avoid the need to setup Server Actions at this moment
-          <Login />
-        */}
+        {/* Commented out to avoid the need to setup Server Actions at this moment */}
+        {/* <Login /> */}
         <p className="px-8 text-center text-sm text-muted-foreground">
           No account?{" "}
           <Link
@@ -38,5 +44,3 @@ export default function Home() {
     </div>
   );
 }
-
-
