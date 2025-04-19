@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { signInWithPhoneNumber, RecaptchaVerifier, PhoneAuthProvider, signInWithCredential, onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { toast } from "@/hooks/use-toast";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 // Country codes data
 const countryCodes = [
@@ -75,6 +77,7 @@ function Modal({ isOpen, onClose, children }: { isOpen: boolean; onClose: () => 
 // --- Navbar Component ---
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [stage, setStage] = useState<"phone" | "code">("phone");
   const [isLoading, setIsLoading] = useState(false);
@@ -95,6 +98,46 @@ export default function Navbar() {
 
     return () => unsubscribe();
   }, []);
+
+  const handleVendorDashboardClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!user?.phoneNumber || !db) return;
+
+    try {
+      // Format the phone number to match the database format (e.g., "+15555555555")
+      const formattedPhoneNumber = user.phoneNumber.startsWith('+') 
+        ? user.phoneNumber 
+        : `+${user.phoneNumber}`;
+
+      // Query Firestore for the vendor with matching phone number
+      const vendorsRef = collection(db, "vendor");
+      const q = query(vendorsRef, where("phoneNumber", "==", formattedPhoneNumber));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        toast({
+          title: "Error",
+          description: "No vendor profile found for this phone number",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get the first matching vendor's ID
+      const vendorDoc = querySnapshot.docs[0];
+      const vendorId = vendorDoc.id;
+
+      // Redirect to the vendor's edit profile page
+      router.push(`/vendor/${vendorId}/dashboard`);
+    } catch (error) {
+      console.error("Error finding vendor profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to find vendor profile",
+        variant: "destructive",
+      });
+    }
+  };
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -235,6 +278,7 @@ export default function Navbar() {
       setStage("phone");
       setPhoneNumber("");
       setVerificationCode("");
+      router.push("/");
     } catch (error: any) {
       console.error("Error verifying code:", error);
       toast({
@@ -285,6 +329,7 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
+                    onClick={link.onClick}
                     className={cn(
                       "text-sm font-medium transition-colors hover:text-navbar-foreground/80",
                       pathname === link.href
