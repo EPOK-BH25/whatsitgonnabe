@@ -97,7 +97,7 @@ export default function Navbar() {
   }, []);
 
   const navLinks = [
-    { href: "/", label: "Services" },
+    { href: "/", label: "Home" },
     ...(user ? [{ href: "/vendor-dashboard", label: "Vendor Dashboard" }] : []),
     { href: "/about-me", label: "About the Team" },
   ];
@@ -274,7 +274,7 @@ export default function Navbar() {
             {/* Logo */}
             <div className="flex-shrink-0">
               <Link href="/" className="text-xl font-bold">
-                EPOK
+                MINTY EXTERIOR
               </Link>
             </div>
 
