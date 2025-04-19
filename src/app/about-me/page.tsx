@@ -5,17 +5,19 @@ const AboutMe: React.FC = () => {
     <div className="about-me-container bg-background text-foreground py-8 px-4">
       {/* Intro Section */}
       <section className="intro-section text-center mb-16">
-        <h1 className="text-3xl font-semibold mb-4">Why We Built This Website</h1>
-        <p className="text-lg text-muted-foreground">
-          We wanted to create a space where we could showcase our skills, share our stories,
-          and connect with like-minded individuals. This website is a personal project where
-          we aim to demonstrate our web development abilities and give you a glimpse of our work.
+        <h1 className="text-3xl font-semibold mb-4">Motivation behind Minty</h1>
+        <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+          Minty is a platform to provide a place for up and coming beauty cosmetic small businesses
+          to have a place to showcase their services. A place specific to the beauty industry that 
+          doesn't need to be hustled out by larger business, misplaced in other platforms,
+          such as yelp, or forced to drum and conduct business on social media. There isn't a one stop shop for 
+          the not so niche need that doesn't have a home on other platforms.
         </p>
       </section>
 
       {/* Team Section */}
       <section className="team-section text-center">
-        <h2 className="text-2xl font-semibold mb-8">Meet Our Team</h2>
+        <h2 className="text-2xl font-semibold mb-8">Meet The Development Team</h2>
         <div className="team-boxes grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Team Member 1 */}
           <div className="team-member bg-card p-6 rounded-xl shadow-lg">
