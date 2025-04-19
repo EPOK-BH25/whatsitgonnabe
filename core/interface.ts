@@ -3,9 +3,35 @@ export interface Vendor {
   businessName: string;
   address: string;
   email: string;
-  tags: string[];
+  phoneNumber: string;
   images: string[];
-  paymentOptions: Record<string, boolean>;
-  city: string;
-  state: string;
+  tags: string[];
+  offersDrive: boolean;
+  offersHome: boolean;
+  paymentOptions: {
+    cash: boolean;
+    cashapp: boolean;
+    credit: boolean;
+    debit: boolean;
+    paypal: boolean;
+    tap: boolean;
+    venmo: boolean;
+    zelle: boolean;
+  };
+  socialmedia: string[];
+  services?: {
+    hair?: Record<string, boolean>;
+    nails?: Record<string, boolean>;
+    makeup?: Record<string, boolean>;
+  };
+}
+
+export interface DisplayVendor extends Vendor {
+  city?: string;
+  state?: string;
+  description?: string;
+  mapLocation?: {
+    lat: number;
+    lng: number;
+  };
 }
