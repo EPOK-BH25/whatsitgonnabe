@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, X, Instagram, Facebook, Twitter, Youtube, Linkedin, Globe } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Image from "next/image";
+import { auth } from "@/lib/firebase";
 
 interface VendorData {
   id: string;
@@ -87,7 +88,6 @@ export default function VendorDashboard() {
   const params = useParams();
   const router = useRouter();
   const vendorId = params.id as string;
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vendor, setVendor] = useState<VendorData | null>(null);
@@ -145,39 +145,62 @@ export default function VendorDashboard() {
   const [activeTab, setActiveTab] = useState("profile");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
-  // Fetch vendor data and services
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!auth) {
+        router.push('/');
+        return;
+      }
+
+      const user = auth.currentUser;
+      if (!user) {
+        router.push('/');
+        return;
+      }
+
+      // Check if the current user is the vendor owner
+      if (user.uid !== vendorId) {
+        router.push('/');
+        return;
+      }
+
+      setIsAuthorized(true);
+    };
+
+    checkAuth();
+  }, [vendorId, router]);
+
   useEffect(() => {
     const fetchVendorData = async () => {
-      if (!vendorId || !db) return;
+      if (!db || !isAuthorized) return;
       
       try {
-        // Fetch vendor document
         const vendorRef = doc(db, "vendor", vendorId);
         const vendorSnap = await getDoc(vendorRef);
         
         if (vendorSnap.exists()) {
-          const vendorData = { id: vendorSnap.id, ...vendorSnap.data() } as VendorData;
-          setVendor(vendorData);
-          setEditedVendor(vendorData);
+          setVendor({ id: vendorSnap.id, ...vendorSnap.data() } as VendorData);
+          setEditedVendor({ id: vendorSnap.id, ...vendorSnap.data() } as VendorData);
           
           // Parse social media links
-          const parsedLinks = parseSocialMediaLinks(vendorData.socialmedia);
+          const parsedLinks = parseSocialMediaLinks(vendorSnap.data().socialmedia);
           setSocialMediaLinks(parsedLinks);
           
           // Initialize services based on tags
           const initialServices: ServicesData = {
             hair: defaultServices.hair.map(service => ({
               ...service,
-              enabled: vendorData.tags.includes(service.name)
+              enabled: vendorSnap.data().tags.includes(service.name)
             })),
             nails: defaultServices.nails.map(service => ({
               ...service,
-              enabled: vendorData.tags.includes(service.name)
+              enabled: vendorSnap.data().tags.includes(service.name)
             })),
             makeup: defaultServices.makeup.map(service => ({
               ...service,
-              enabled: vendorData.tags.includes(service.name)
+              enabled: vendorSnap.data().tags.includes(service.name)
             }))
           };
           
@@ -196,7 +219,7 @@ export default function VendorDashboard() {
     };
 
     fetchVendorData();
-  }, [vendorId, router]);
+  }, [vendorId, router, db, isAuthorized]);
 
   const parseSocialMediaLinks = (links: string[]): SocialMediaLink[] => {
     return links.map(link => {
@@ -394,15 +417,30 @@ export default function VendorDashboard() {
     
     try {
       const file = e.target.files[0];
-      const imageRef = ref(storage!, `vendorImages/${vendorId}/${Date.now()}_${file.name}`);
       
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please upload an image file");
+        return;
+      }
+      
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image size must be less than 5MB");
+        return;
+      }
+      
+      // Update path to match storage rules
+      const imageRef = ref(storage!, `vendors/${vendorId}/images/${Date.now()}_${file.name}`);
+      
+      // Upload the file
       await uploadBytes(imageRef, file);
       const downloadURL = await getDownloadURL(imageRef);
       
-      const updatedImages = [...(editedVendor.images || []), downloadURL];
-      
       // Update vendor document with new image URL
       const vendorRef = doc(db, "vendor", vendorId);
+      const updatedImages = [...(editedVendor.images || []), downloadURL];
+      
       await updateDoc(vendorRef, {
         images: updatedImages
       });
@@ -415,7 +453,7 @@ export default function VendorDashboard() {
       toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      toast.error("Failed to upload image");
+      toast.error("Failed to upload image. Please try again.");
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) {
@@ -451,9 +489,13 @@ export default function VendorDashboard() {
       toast.success("Image removed successfully");
     } catch (error) {
       console.error("Error removing image:", error);
-      toast.error("Failed to remove image");
+      toast.error("Failed to remove image. Please try again.");
     }
   };
+
+  if (!isAuthorized) {
+    return null; // Don't render anything while checking authorization
+  }
 
   if (loading) {
     return (

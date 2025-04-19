@@ -80,6 +80,7 @@ export default function VendorProfile() {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [activeTab, setActiveTab] = useState("about");
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isOwner, setIsOwner] = useState(false);
   
   // Review form state
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -181,6 +182,23 @@ useEffect(() => {
     };
 
     fetchVendorData();
+  }, [vendorId]);
+
+  useEffect(() => {
+    const checkOwnership = async () => {
+      if (!auth) return;
+      
+      const user = auth.currentUser;
+      if (!user) {
+        setIsOwner(false);
+        return;
+      }
+
+      // Check if the current user is the vendor owner
+      setIsOwner(user.uid === vendorId);
+    };
+
+    checkOwnership();
   }, [vendorId]);
 
   if (loading) {
@@ -490,14 +508,16 @@ useEffect(() => {
                   ))}
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2"
-                onClick={() => router.push(`/vendor/${vendorId}/dashboard`)}
-              >
-                <Edit className="h-4 w-4" />
-                <span>Edit Profile</span>
-              </Button>
+              {isOwner && (
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2"
+                  onClick={() => router.push(`/vendor/${vendorId}/dashboard`)}
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Edit Profile</span>
+                </Button>
+              )}
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

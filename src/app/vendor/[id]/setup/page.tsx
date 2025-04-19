@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, Upload, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { auth } from "@/lib/firebase";
 
 interface VendorSetupForm {
   businessName: string;
@@ -40,7 +41,10 @@ interface VendorSetupForm {
 export default function VendorSetup() {
   const params = useParams();
   const router = useRouter();
+  const vendorId = params.id as string;
   const [loading, setLoading] = useState(true);
+  const [vendor, setVendor] = useState<VendorSetupForm | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<VendorSetupForm>({
     businessName: "",
@@ -68,57 +72,50 @@ export default function VendorSetup() {
   const [newSocialMedia, setNewSocialMedia] = useState("");
 
   useEffect(() => {
+    const checkAuth = async () => {
+      if (!auth) {
+        router.push('/');
+        return;
+      }
+
+      const user = auth.currentUser;
+      if (!user) {
+        router.push('/');
+        return;
+      }
+
+      // Check if the current user is the vendor owner
+      if (user.uid !== vendorId) {
+        router.push('/');
+        return;
+      }
+
+      setIsAuthorized(true);
+    };
+
+    checkAuth();
+  }, [vendorId, router]);
+
+  useEffect(() => {
     const fetchVendorData = async () => {
-      if (!params.id || !db) return;
-
+      if (!db || !isAuthorized) return;
+      
       try {
-        const vendorDoc = await getDoc(doc(db, "vendor", params.id as string));
-        if (!vendorDoc.exists()) {
-          toast({
-            title: "Error",
-            description: "Vendor not found",
-            variant: "destructive",
-          });
-          router.push("/");
-          return;
+        const vendorRef = doc(db, "vendor", vendorId);
+        const vendorSnap = await getDoc(vendorRef);
+        
+        if (vendorSnap.exists()) {
+          setVendor(vendorSnap.data() as VendorSetupForm);
         }
-
-        const data = vendorDoc.data();
-        setFormData({
-          businessName: data.businessName || "",
-          email: data.email || "",
-          address: data.address || "",
-          phoneNumber: data.phoneNumber || "",
-          offersHome: data.offersHome || false,
-          offersDrive: data.offersDrive || false,
-          paymentOptions: {
-            cash: data.paymentOptions?.cash || false,
-            cashapp: data.paymentOptions?.cashapp || false,
-            credit: data.paymentOptions?.credit || false,
-            debit: data.paymentOptions?.debit || false,
-            paypal: data.paymentOptions?.paypal || false,
-            tap: data.paymentOptions?.tap || false,
-            venmo: data.paymentOptions?.venmo || false,
-            zelle: data.paymentOptions?.zelle || false,
-          },
-          images: data.images || [],
-          tags: data.tags || [],
-          socialmedia: data.socialmedia || [],
-        });
       } catch (error) {
         console.error("Error fetching vendor data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load vendor data",
-          variant: "destructive",
-        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchVendorData();
-  }, [params.id, router]);
+  }, [vendorId, db, isAuthorized]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -255,10 +252,22 @@ export default function VendorSetup() {
     }
   };
 
+  if (!isAuthorized) {
+    return null; // Don't render anything while checking authorization
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!vendor) {
+    return (
+      <div className="container mx-auto py-8">
+        <h1 className="text-2xl font-bold">Vendor not found</h1>
       </div>
     );
   }
