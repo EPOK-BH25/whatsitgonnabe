@@ -142,7 +142,7 @@ export default function Navbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     ...(user ? [{ href: "/vendor-dashboard", label: "Vendor Dashboard", onClick: handleVendorDashboardClick }] : []),
-    { href: "/about-me", label: "About the Team" },
+    { href: "/about-me", label: "About Us" },
   ];
 
   const setupRecaptcha = () => {
@@ -347,7 +347,7 @@ export default function Navbar() {
             {/* Logo */}
             <div className="flex-shrink-0">
               <Link href="/" className="text-xl font-bold text-[#FAF5EE]">
-                MINTY EXTERIOR
+                MINTY
               </Link>
             </div>
 
