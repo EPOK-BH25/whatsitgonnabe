@@ -57,7 +57,7 @@ export function VendorCard({
       style={{ backgroundColor }}
     >
       <div className="flex flex-col h-full">
-        <div className="flex justify-between items-start mb-2">
+        <div className="flex justify-between items-start">
           <Link
             href={id ? `/vendor/${id}` : links[0] ?? "#"}
             onClick={(e) => e.stopPropagation()}
@@ -69,8 +69,8 @@ export function VendorCard({
           </Link>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {tags.slice(0, 3).map((tag, index) => (
+        <div className="flex flex-wrap gap-1.5 mt-2 mb-2">
+          {tags.map((tag, index) => (
             <Badge 
               key={index} 
               variant="outline"
@@ -89,15 +89,51 @@ export function VendorCard({
           <p className="text-sm text-muted-foreground">
             {city}, {state}
           </p>
-          {rating && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-sm font-medium">{rating}</span>
-              <span className="text-sm text-muted-foreground">
-                ({reviewCount} reviews)
-              </span>
-            </div>
-          )}
         </div>
+
+        {expanded && (
+          <div className="mt-3 space-y-2">
+            {rating && (
+              <div>
+                <p className="font-semibold text-sm">⭐ {rating} ({reviewCount} reviews)</p>
+              </div>
+            )}
+
+            {amenities.length > 0 && (
+              <div>
+                <p className="font-semibold text-sm">Amenities:</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {amenities.map((item, index) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="text-xs px-3 py-1 bg-white/50"
+                    >
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {links.length > 1 && (
+              <div className="pt-2 space-y-1">
+                {links.slice(1).map((link, index) => (
+                  <Link
+                    key={index}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 underline hover:text-blue-800 block"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Extra Link {index + 1}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );
