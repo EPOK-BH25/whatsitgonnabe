@@ -32,6 +32,21 @@ export default function Home() {
   const [selectedSubTags, setSelectedSubTags] = useState<string[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
 
+  function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 3958.8;
+    const toRad = (deg: number) => deg * (Math.PI / 180);
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+  }
+
+
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const categories = ["Hair", "Nails", "Makeup"];
@@ -271,33 +286,24 @@ export default function Home() {
 }, [vendors, selectedCategories, selectedSubTags, searchQuery, filterApplied]);
 
 
-  // Format vendors for display and map
   const displayVendors = useMemo(() => {
-    return filteredVendors.map(vendor => {
-      // Handle empty address case
-      if (!vendor.address) {
-        return {
-          ...vendor,
-          city: '',
-          state: '',
-          description: `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`
-        };
-      }
-      
-      const addressParts = vendor.address.split(',');
+    return filteredVendors.map((vendor) => {
+      const addressParts = vendor.address?.split(',') || [];
       const city = addressParts[1]?.trim() || '';
       const stateZip = addressParts[2]?.trim() || '';
       const state = stateZip.split(' ')[0] || '';
-      const description = `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`;
-  
+
       return {
         ...vendor,
         city,
         state,
-        description
+        description: `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`
       };
     });
   }, [filteredVendors]);
+
+
+
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -385,10 +391,10 @@ export default function Home() {
             <div className="space-y-4">
               {loading ? (
                 <p className="text-gray-500 text-sm">Loading vendors...</p>
-              ) : filteredVendors.length > 0 ? (
-                filteredVendors.map((vendor) => (
-                  <VendorCard key={vendor.id} {...vendor} />
-                ))
+              ) : displayVendors.length > 0 ? (
+                  displayVendors.map((vendor) => (
+                    <VendorCard key={vendor.id} {...vendor} />
+                  ))
               ) : (
                 <p className="text-gray-500 text-sm">No vendors found matching your criteria.</p>
               )}
