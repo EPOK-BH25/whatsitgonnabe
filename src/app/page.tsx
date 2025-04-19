@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Icons } from "@/components/icons";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,6 +31,8 @@ export default function Home() {
   const [expandedTag, setExpandedTag] = useState<string | null>(null);
   const [selectedSubTags, setSelectedSubTags] = useState<string[]>([]);
   const [filterApplied, setFilterApplied] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const categories = ["Hair", "Nails", "Makeup"];
 
@@ -118,6 +120,26 @@ export default function Home() {
     fetchVendors();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setExpandedTag(null);
+      }
+    };
+
+    if (expandedTag !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [expandedTag]);
+
+
   // Get current user location on mount
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation) {
@@ -162,19 +184,22 @@ export default function Home() {
 
   // Toggle subtag selection
   const toggleSubTag = (subTag: string) => {
-    // Force re-render with state update
     setFilterApplied(prev => !prev);
-    
+
     const isSelected = selectedSubTags.includes(subTag);
-    
+
     const newSelectedSubTags = isSelected
       ? selectedSubTags.filter((tag) => tag !== subTag)
       : [...selectedSubTags, subTag];
-    
+
     console.log(`Toggling subtag: ${subTag}, new selection:`, newSelectedSubTags);
-    
+
     setSelectedSubTags(newSelectedSubTags);
+
+    // 👇 Collapse the dropdown once a subtag is selected
+    setExpandedTag(null);
   };
+
 
   // Update delayed query after user stops typing
   useEffect(() => {
@@ -310,7 +335,9 @@ export default function Home() {
             </Badge>
 
             {expandedTag === category && (
-              <div className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border rounded shadow-lg p-2">
+              <div 
+              ref={dropdownRef}
+              className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 z-10 bg-white border rounded shadow-lg p-2">
                 {nestedTags[category].map((subTag) => (
                   <Badge
                     key={subTag}
