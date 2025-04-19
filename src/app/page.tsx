@@ -8,103 +8,76 @@ import { VendorCard } from "@/components/vendors-card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Map } from "@/components/map";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { Vendor } from "../../core/interface";
+import dynamic from "next/dynamic";
 
+// Dynamically import Map component with SSR disabled
+const Map = dynamic(() => import("@/components/map").then((mod) => mod.default), { ssr: false });
 
 export default function Home() {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [delayedQuery, setDelayedQuery] = useState<string>("");
 
-
+  // Get current user location on mount
   useEffect(() => {
-    const fetchVendors = async () => {
-      if (!db) return;
-
-      const vendorSnapshot = await getDocs(collection(db, "vendor"));
-      const vendorData: Vendor[] = [];
-
-      for (const vendorDoc of vendorSnapshot.docs) {
-        const vendor = vendorDoc.data();
-
-        // Fetch nested services
-        const servicesSnapshot = await getDocs(collection(db, "vendor", vendorDoc.id, "services"));
-        const tags: string[] = [];
-
-        servicesSnapshot.forEach(serviceDoc => {
-          const data = serviceDoc.data();
-          Object.entries(data).forEach(([category, serviceItems]) => {
-            if (typeof serviceItems === "object" && serviceItems !== null) {
-              Object.entries(serviceItems).forEach(([key, val]) => {
-                if (val === true) {
-                  tags.push(key.charAt(0).toUpperCase() + key.slice(1)); // Capitalize
-                }
-              });
-            }
-          });
-        });
-
-        vendorData.push({
-          id: vendorDoc.id,
-          businessName: vendor.businessName || "Unnamed Vendor",
-          address: vendor.address || "",
-          email: vendor.email || "",
-          tags,
-          images: vendor.images || [],
-          paymentOptions: vendor.paymentOptions || {},
-          city: "",   // You can parse from address later if needed
-          state: "",  // Same here
-        });
-
-      }
-
-      setVendors(vendorData);
-      console.log("Fetched vendorData:", vendorData);
-    };
-
-    fetchVendors();
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lon: longitude });
+        },
+        () => {
+          console.error("Error fetching user location.");
+        }
+      );
+    }
   }, []);
 
-  const tagCategories: Record<"Hair" | "Nails" | "Makeup", string[]> = {
-    Hair: ["Haircuts", "Treatments", "Coloring"],
-    Nails: ["Acrylics", "Gel-X", "Dip Powder"],
-    Makeup: ["Natural", "Glam", "Bridal"],
-  };
+  const vendors = [
+    {
+      businessName: "Glow Beauty Bar",
+      tags: ["Hair", "Nails", "Makeup"],
+      description: "Providing glam services for all occasions.",
+      city: "Los Angeles",
+      state: "CA",
+    },
+    {
+      businessName: "City Styles",
+      tags: ["Haircuts", "Color"],
+      description: "Trendy haircuts and styling from pro stylists.",
+      city: "New York",
+      state: "NY",
+    },
+  ];
 
+  const tags = ["Hair", "Nails", "Makeup", "Color", "Haircuts"];
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag)
         ? prev.filter((t) => t !== tag)
         : [...prev, tag]
-      );
-  }
-
-  const handleCategoryClick = (category: string) => {
-    setExpandedCategory((prev) => (prev === category ? null : category));
-  }
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedTags([]);
-    setExpandedCategory(null);
+    );
   };
-
 
   const filteredVendors = vendors.filter((vendor) => {
     const query = searchQuery.toLowerCase();
-
-    const matchesAddress = vendor.address?.toLowerCase().includes(query);
+    const matchesCityOrState =
+      vendor.city.toLowerCase().includes(query) || vendor.state.toLowerCase().includes(query);
     const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) => vendor.tags.includes(tag));
 
-    return matchesAddress && matchesTags;
+    return matchesCityOrState && matchesTags;
   });
 
+  // Update delayed query after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDelayedQuery(searchQuery);
+    }, 1000); // Wait for 1 second after typing stops
 
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -116,55 +89,28 @@ export default function Home() {
       </header>
 
       <div className="p-4 flex flex-wrap items-center gap-2">
-          <Input
-            type="text"
-            placeholder="Search by city or state..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-[80%] md:w-[300px]"
-          />
+        <Input
+          type="text"
+          placeholder="Search by city or state..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-[80%] md:w-[300px]"
+        />
 
-          {Object.keys(tagCategories).map((category) => (
-            <div key={category} className="relative">
-              <Badge
-                onClick={() => handleCategoryClick(category)}
-                className={cn(
-                  "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
-                  expandedCategory === category
-                    ? "bg-black text-white"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {category}
-              </Badge>
-
-              {expandedCategory === category && (
-                <div className="absolute top-full mt-2 left-0 z-10 bg-white border rounded-md shadow-md p-2 space-y-1 w-max">
-                  {(tagCategories[category as keyof typeof tagCategories] || []).map((subTag) => (
-                    <div
-                      key={subTag}
-                      onClick={() => toggleTag(subTag)}
-                      className={cn(
-                        "cursor-pointer text-sm px-3 py-1 rounded hover:bg-gray-100",
-                        selectedTags.includes(subTag) && "bg-black text-white"
-                      )}
-                    >
-                      {subTag}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          
-          {selectedTags.length > 0 || searchQuery !== "" ? (
-            <Badge
-              onClick={clearFilters}
-              className="bg-gray-200 text-gray-800 hover:bg-gray-300 cursor-pointer  p-2 ml-2 transition"
-            >
-              Clear Filters  ✖
-            </Badge>
-          ) : null}
+        {tags.map((tag) => (
+          <Badge
+            key={tag}
+            onClick={() => toggleTag(tag)}
+            className={cn(
+              "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
+              selectedTags.includes(tag)
+                ? "bg-black text-white text-md"
+                : "bg-muted text-muted-forground text-md"
+            )}
+          >
+            {tag}
+          </Badge>
+        ))}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -183,7 +129,11 @@ export default function Home() {
         </div>
 
         <div className="flex-1 bg-gray-100 flex items-center justify-center">
-          <Map vendors={filteredVendors} />
+          <Map
+            vendors={filteredVendors}
+            userLocation={userLocation}
+            searchQuery={delayedQuery}
+          />
         </div>
       </div>
     </div>

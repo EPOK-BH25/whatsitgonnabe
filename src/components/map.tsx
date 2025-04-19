@@ -29,6 +29,8 @@ type Vendor = {
 
 type Props = {
   vendors: Vendor[];
+  userLocation: { lat: number; lon: number } | null;
+  searchQuery: string;
 };
 
 function SetViewToCurrentLocation({
@@ -48,7 +50,7 @@ function SetViewToCurrentLocation({
         onLocationFound(coords);
       },
       (error) => {
-        console.error("Geolocation error:", error);
+        console.error('Geolocation error:', error);
       }
     );
   }, [map, onLocationFound]);
@@ -56,11 +58,10 @@ function SetViewToCurrentLocation({
   return null;
 }
 
-export function Map({ vendors }: Props) {
+export default function Map({ vendors, userLocation, searchQuery }: Props) {
   const [vendorLocations, setVendorLocations] = useState<
     { lat: number; lon: number; vendor: Vendor }[]
   >([]);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     const fetchCoordinates = async () => {
@@ -91,13 +92,13 @@ export function Map({ vendors }: Props) {
   const defaultCenter: [number, number] = [37.0902, -95.7129]; // USA center
 
   return (
-    <MapContainer center={defaultCenter} zoom={4} style={{ height: "100%", width: "100%" }}>
+    <MapContainer center={defaultCenter} zoom={4} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <SetViewToCurrentLocation onLocationFound={setUserLocation} />
+      <SetViewToCurrentLocation onLocationFound={(coords) => {}} />
 
       {userLocation && (
         <Marker
@@ -115,12 +116,14 @@ export function Map({ vendors }: Props) {
       )}
 
       {vendorLocations.map(({ lat, lon, vendor }, i) => (
-        <Marker 
-        eventHandlers={{
-          mouseover: (e) => e.target.openPopup(), // Show on hover
-          mouseout: (e) => e.target.closePopup(), // Hide on mouse out
-        }}
-        key={i} position={[lat, lon]}>
+        <Marker
+          key={i}
+          position={[lat, lon]}
+          eventHandlers={{
+            mouseover: (e) => e.target.openPopup(), // Show on hover
+            mouseout: (e) => e.target.closePopup(), // Hide on mouse out
+          }}
+        >
           <Popup>
             <strong>{vendor.businessName}</strong>
             <br />
