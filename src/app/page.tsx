@@ -1,42 +1,109 @@
+"use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Icons } from "@/components/icons";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { VendorCard } from "@/components/vendors-card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+
+  const vendors = [
+    {
+      businessName: "Glow Beauty Bar",
+      tags: ["Hair", "Nails", "Makeup"],
+      description: "Providing glam services for all occasions.",
+      city: "Los Angeles",
+      state: "CA",
+    },
+    {
+      businessName: "City Styles",
+      tags: ["Haircuts", "Color"],
+      description: "Trendy haircuts and styling from pro stylists.",
+      city: "New York",
+      state: "NY",
+    },
+  ];
+
+  const tags = ["Hair", "Nails", "Makeup", "Color", "Haircuts"];
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag)
+        ? prev.filter((t) => t !== tag)
+        : [...prev, tag]
+      );
+  }
+
+  const filteredVendors = vendors.filter((vendor) => {
+    const query = searchQuery.toLowerCase();
+
+    const matchesCityOrState = vendor.city.toLowerCase().includes(query) || vendor.state.toLowerCase().includes(query);
+    const matchesTags = selectedTags.length === 0 || selectedTags.some((tag) =>  vendor.tags.includes(tag));
+
+    return matchesCityOrState && matchesTags;
+  });
+
+
   return (
-    <div className="container relative flex h-screen w-screen flex-col items-center justify-center md:grid lg:max-w-none">
-      <Link
-        href="/sign-up"
-        className="absolute right-4 top-4 md:right-8 md:top-8 flex items-center"
-      >
-        Sign Up <Icons.arrowRight className="h-4 w-4" />
-      </Link>
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-        <div className="flex flex-col space-y-2 text-center">
-          <Icons.shield className="mx-auto h-6 w-6" />
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back.
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Enter your phone number and password to authenticate.
-          </p>
+    <div className="h-screen w-screen flex flex-col">
+      <header className="flex justify-between items-center p-4 md:p-6 bg-black text-white">
+        <p className="font-bold text-xl">EPOK</p>
+        <Link href="/sign-up" className="flex items-center">
+          Sign Up <Icons.arrowRight className="h-4 w-4 ml-1" />
+        </Link>
+      </header>
+
+      <div className="p-4 flex flex-wrap items-center gap-2">
+          <Input
+            type="text"
+            placeholder="Search by city or state..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-[80%] md:w-[300px]"
+          />
+
+            {tags.map((tag) => (
+              <Badge 
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={cn(
+                  "cursor-pointer select-none px-4 py-2 rounded-full text-sm font-medium transition",
+                  selectedTags.includes(tag) 
+                    ? "bg-black text-white text-md"
+                    : "bg-muted text-muted-forground text-md"
+                )}
+              >
+                {tag}
+              </Badge>
+            ))}
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-[50%] border-r p-4 flex flex-col gap-4">
+          <ScrollArea className="flex-1">
+            <div className="space-y-4">
+              {filteredVendors.length > 0 ? (
+                filteredVendors.map((vendor, index) => (
+                  <VendorCard key={index} {...vendor} />
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">No vendors found.</p>
+              )}
+            </div>
+          </ScrollArea>
         </div>
-        {/*
-          Commented out to avoid the need to setup Server Actions at this moment
-          <Login />
-        */}
-        <p className="px-8 text-center text-sm text-muted-foreground">
-          No account?{" "}
-          <Link
-            href="/sign-up"
-            className="hover:text-foreground underline underline-offset-4"
-          >
-            Sign up
-          </Link>
-        </p>
+
+        <div className="flex-1 bg-gray-100 flex items-center justify-center">
+          <p className="text-gray-500 text-lg">Map or Content goes here</p>
+        </div>
       </div>
     </div>
   );
 }
-
-
