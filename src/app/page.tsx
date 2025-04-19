@@ -102,7 +102,7 @@ export default function Home() {
         </div>
 
         <div className="flex-1 bg-gray-100 flex items-center justify-center">
-          <Map />
+          <Map vendors={filteredVendors} />
         </div>
       </div>
     </div>
