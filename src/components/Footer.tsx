@@ -16,7 +16,13 @@ export default function Footer() {
                 Platform providing small roots a starting line.
               </h5>
               <div className="mt-6 flex gap-2">
-                <SocialButton icon={faGithub} className="text-footer-foreground" />
+                <a 
+                  href="https://github.com/EPOK-BH25/whatsitgonnabe/tree/test" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <SocialButton icon={faGithub} />
+                </a>
               </div>
             </div>
   
@@ -24,8 +30,8 @@ export default function Footer() {
               <FooterColumn
                 title="Useful Links"
                 links={[
-                  ["About Us", "#"],
-                  ["Github", "#"],
+                  ["About the Team", "#"],
+                  ["Github", "https://github.com/EPOK-BH25/whatsitgonnabe/tree/test"],
                 ]}
               />
             </div>
@@ -36,8 +42,8 @@ export default function Footer() {
           <div className="flex justify-center">
             <div className="text-sm text-footer-foreground font-semibold py-1 text-center">
               © {new Date().getFullYear()}{" "}
-              <a href="https://www.creative-tim.com" className="hover:underline">
-                Creative Tim
+              <a href="https://github.com/EPOK-BH25/whatsitgonnabe/tree/test" className="hover:underline">
+                EPOK
               </a>
               . All rights reserved.
             </div>
@@ -48,13 +54,13 @@ export default function Footer() {
   }
   
 
-  function SocialButton({ icon }: { icon: any }) {
+  function SocialButton({ icon, className }: { icon: any, className?: string }) {
     return (
       <button
         type="button"
-        className="bg-white text-black shadow-lg font-normal h-10 w-10 flex items-center justify-center rounded-full outline-none focus:outline-none"
+        className="bg-white text-black shadow-lg font-normal h-10 w-10 flex items-center justify-center rounded-full outline-none focus:outline-none hover:bg-gray-100 transition-colors"
       >
-        <FontAwesomeIcon icon={icon} />
+        <FontAwesomeIcon icon={icon} className="text-black" />
       </button>
     );
   }
@@ -72,6 +78,8 @@ function FooterColumn({ title, links }: { title: string; links: [string, string]
             <a
             href={href}
             className="text-footer-foreground hover:underline font-semibold block pb-2 text-sm"
+            target={href.startsWith('http') ? '_blank' : undefined}
+            rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
             >
               {label}
             </a>
