@@ -23,7 +23,9 @@ export interface Vendor {
     hair?: Record<string, boolean>;
     nails?: Record<string, boolean>;
     makeup?: Record<string, boolean>;
+    [key: string]: Record<string, boolean> | undefined;
   };
+
 }
 
 export interface DisplayVendor extends Vendor {

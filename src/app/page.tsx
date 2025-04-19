@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Icons } from "@/components/icons";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,11 +30,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [expandedTag, setExpandedTag] = useState<string | null>(null);
   const [selectedSubTags, setSelectedSubTags] = useState<string[]>([]);
+  const [filterApplied, setFilterApplied] = useState(false);
 
   const categories = ["Hair", "Nails", "Makeup"];
 
   const nestedTags: Record<string, string[]> = {
-    Hair: ["brazilian", "color", "extensions", "haircuts", "laser", "wax"],
+    Hair: ["brazilian", "color", "extensions", "haircuts", "laser", "wax", "brows"],
     Nails: ["acrylics", "manicure", "pedicure"],
     Makeup: ["bridal", "natural", "prom", "tattooCover"]
   };
@@ -42,21 +43,74 @@ export default function Home() {
   // Fetch vendors from Firebase
   useEffect(() => {
     const fetchVendors = async () => {
-      if (!db) return;
-      
       try {
-        const vendorsRef = collection(db, "vendor");
-        const querySnapshot = await getDocs(vendorsRef);
-        
-        const vendorsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Vendor[];
-        
+        if (!db) return;
+        const vendorSnapshot = await getDocs(collection(db, "vendor"));
+        const vendorsData: Vendor[] = [];
+
+        for (const vendorDoc of vendorSnapshot.docs) {
+          const vendorData = vendorDoc.data();
+
+          // Destructure all required fields from vendorData
+          const {
+            businessName,
+            address,
+            email,
+            phoneNumber,
+            images = [],
+            tags = [],
+            offersDrive = false,
+            offersHome = false,
+            paymentOptions = {
+              cash: false,
+              cashapp: false,
+              credit: false,
+              debit: false,
+              paypal: false,
+              tap: false,
+              venmo: false,
+              zelle: false,
+            },
+            socialmedia = [],
+          } = vendorData;
+
+          // Get the nested services document
+          const servicesRef = collection(db, "vendor", vendorDoc.id, "services");
+          const servicesSnapshot = await getDocs(servicesRef);
+
+          let flattenedServices = {};
+          if (!servicesSnapshot.empty) {
+            // Get the first document in the services subcollection
+            const serviceDoc = servicesSnapshot.docs[0];
+            if (serviceDoc) {
+              flattenedServices = serviceDoc.data();
+            }
+          }
+
+          const vendorObj: Vendor = {
+            id: vendorDoc.id,
+            businessName,
+            address,
+            email,
+            phoneNumber,
+            images,
+            tags: tags.map((tag: string) => tag.toLowerCase()),
+            offersDrive,
+            offersHome,
+            paymentOptions,
+            socialmedia,
+            services: flattenedServices,
+          };
+
+          vendorsData.push(vendorObj);
+        }
+
         setVendors(vendorsData);
+        setLoading(false);
+        console.log(`Loaded ${vendorsData.length} vendors`);
+        
       } catch (error) {
         console.error("Error fetching vendors:", error);
-      } finally {
         setLoading(false);
       }
     };
@@ -79,32 +133,47 @@ export default function Home() {
     }
   }, []);
 
-  // Toggle category selection
   const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category) 
-        : [...prev, category]
-    );
+    // Force re-render with state update
+    setFilterApplied(prev => !prev);
     
-    // If we're deselecting a category, also deselect all its subtags
-    if (selectedCategories.includes(category)) {
-      setSelectedSubTags(prev => 
-        prev.filter(tag => !nestedTags[category].includes(tag))
+    const isSelected = selectedCategories.includes(category);
+    
+    const newSelectedCategories = isSelected
+      ? selectedCategories.filter((c) => c !== category)
+      : [...selectedCategories, category];
+
+    console.log(`Toggling category: ${category}, new selection:`, newSelectedCategories);
+
+    // Update selected categories immediately to trigger filtering
+    setSelectedCategories(newSelectedCategories);
+
+    if (isSelected) {
+      // Remove all subtags related to this category
+      setSelectedSubTags((prev) =>
+        prev.filter((tag) => !nestedTags[category].includes(tag))
       );
+      setExpandedTag(null);
+    } else {
+      // Set this category as the expanded tag to show subtags
+      setExpandedTag(category);
     }
-    
-    // When clicking a category, expand/collapse its subtags
-    setExpandedTag(expandedTag === category ? null : category);
   };
 
   // Toggle subtag selection
   const toggleSubTag = (subTag: string) => {
-    setSelectedSubTags((prev) =>
-      prev.includes(subTag)
-        ? prev.filter((tag) => tag !== subTag)
-        : [...prev, subTag]
-    );
+    // Force re-render with state update
+    setFilterApplied(prev => !prev);
+    
+    const isSelected = selectedSubTags.includes(subTag);
+    
+    const newSelectedSubTags = isSelected
+      ? selectedSubTags.filter((tag) => tag !== subTag)
+      : [...selectedSubTags, subTag];
+    
+    console.log(`Toggling subtag: ${subTag}, new selection:`, newSelectedSubTags);
+    
+    setSelectedSubTags(newSelectedSubTags);
   };
 
   // Update delayed query after user stops typing
@@ -116,65 +185,94 @@ export default function Home() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Filter vendors based on search query, categories, and subtags
-  const filteredVendors = vendors.filter(vendor => {
-    // Filter by search query (city or state)
+  const filteredVendors = useMemo(() => {
+  console.log("Filtering vendors with:");
+  console.log(`- Selected categories: ${selectedCategories.join(', ')}`);
+  console.log(`- Selected subtags: ${selectedSubTags.join(', ')}`);
+  console.log(`- Search query: ${searchQuery}`);
+
+  if (vendors.length === 0) {
+    console.log("No vendors to filter");
+    return [];
+  }
+
+  const results = vendors.filter((vendor) => {
+    if (!vendor.address) return false;
+
+    // Location filter
     const addressParts = vendor.address.split(',');
     const city = addressParts[1]?.trim().toLowerCase() || '';
     const state = addressParts[2]?.trim().toLowerCase() || '';
     const query = searchQuery.toLowerCase();
-    
-    const matchesCityOrState = 
-      !query || city.includes(query) || state.includes(query);
-    
-    // If no categories selected, show all vendors
-    if (selectedCategories.length === 0 && selectedSubTags.length === 0) {
-      return matchesCityOrState;
-    }
-    
-    // Check if vendor matches selected categories or subtags
-    const services = vendor.services || {};
-    
-    // Filter by category
-    const matchesCategory = selectedCategories.length === 0 || 
-      selectedCategories.some(category => {
-        // Check if any service in this category exists
-        const categoryKey = category.toLowerCase() as 'hair' | 'nails' | 'makeup';
-        return services[categoryKey] && Object.keys(services[categoryKey] || {}).length > 0;
-      });
-    
-    // Filter by subtags if any are selected
-    const matchesSubTags = selectedSubTags.length === 0 || 
-      selectedSubTags.some(subTag => {
-        // Go through each category of services to find the subtag
-        return Object.entries(services).some(([category, categoryServices]) => {
-          if (typeof categoryServices === 'object' && categoryServices) {
-            // Check if the subtag is in this category and is set to true
-            return subTag in categoryServices && categoryServices[subTag] === true;
-          }
-          return false;
-        });
-      });
-    
-    return matchesCityOrState && (matchesCategory || matchesSubTags);
+    const matchesCityOrState = !query || city.includes(query) || state.includes(query);
+    if (!matchesCityOrState) return false;
+
+    const vendorTags = vendor.tags || [];
+
+    // If no categories selected, return all vendors
+    if (selectedCategories.length === 0) return true;
+
+    // Filter by category and subtag combo
+    return selectedCategories.some((category) => {
+      const categoryKey = category.toLowerCase();
+      const hasCategoryTag = vendorTags.includes(categoryKey);
+
+      // If no subtags selected → only check for category tag
+      if (selectedSubTags.length === 0) {
+        return hasCategoryTag;
+      }
+
+      // Only consider subtags from this category
+      const categorySubtags = nestedTags[category] || [];
+      const activeSubtagsForCategory = selectedSubTags.filter((tag) =>
+        categorySubtags.includes(tag)
+      );
+
+      // If subtags selected for this category → must match category AND one subtag
+      if (activeSubtagsForCategory.length > 0) {
+        return (
+          hasCategoryTag &&
+          activeSubtagsForCategory.some((subtag) => vendorTags.includes(subtag))
+        );
+      }
+
+      // Fallback to category-only match
+      return hasCategoryTag;
+    });
   });
+
+  console.log(`Filtered vendors: ${results.length} out of ${vendors.length}`);
+  return results;
+}, [vendors, selectedCategories, selectedSubTags, searchQuery, filterApplied]);
+
 
   // Format vendors for display and map
-  const displayVendors = filteredVendors.map(vendor => {
-    const addressParts = vendor.address.split(',');
-    const city = addressParts[1]?.trim() || '';
-    const stateZip = addressParts[2]?.trim() || '';
-    const state = stateZip.split(' ')[0] || '';
-    const description = `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`;
-
-    // Make sure the vendor has city and state properties for the map component
-    return {
-      ...vendor,
-      city,
-      state,
-      description
-    };
-  });
+  const displayVendors = useMemo(() => {
+    return filteredVendors.map(vendor => {
+      // Handle empty address case
+      if (!vendor.address) {
+        return {
+          ...vendor,
+          city: '',
+          state: '',
+          description: `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`
+        };
+      }
+      
+      const addressParts = vendor.address.split(',');
+      const city = addressParts[1]?.trim() || '';
+      const stateZip = addressParts[2]?.trim() || '';
+      const state = stateZip.split(' ')[0] || '';
+      const description = `${vendor.offersHome ? 'Home services available. ' : ''}${vendor.offersDrive ? 'Drive-in services available.' : ''}`;
+  
+      return {
+        ...vendor,
+        city,
+        state,
+        description
+      };
+    });
+  }, [filteredVendors]);
 
   return (
     <div className="h-screen w-screen flex flex-col">
@@ -190,7 +288,10 @@ export default function Home() {
           type="text"
           placeholder="Search by city or state..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setFilterApplied(prev => !prev); // Force re-render
+          }}
           className="w-[80%] md:w-[300px]"
         />
 
@@ -231,7 +332,28 @@ export default function Home() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-[50%] border-r p-4 flex flex-col gap-4">
+        <div className="w-full md:w-[50%] border-r p-4 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-500">
+              {loading ? "Loading..." : 
+               `Showing ${filteredVendors.length} ${filteredVendors.length === 1 ? 'vendor' : 'vendors'}`}
+            </p>
+            
+            {(selectedCategories.length > 0 || selectedSubTags.length > 0) && (
+              <button 
+                onClick={() => {
+                  setSelectedCategories([]);
+                  setSelectedSubTags([]);
+                  setExpandedTag(null);
+                  setFilterApplied(prev => !prev);
+                }}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+          
           <ScrollArea className="flex-1">
             <div className="space-y-4">
               {loading ? (
@@ -241,13 +363,13 @@ export default function Home() {
                   <VendorCard key={vendor.id} {...vendor} />
                 ))
               ) : (
-                <p className="text-gray-500 text-sm">No vendors found.</p>
+                <p className="text-gray-500 text-sm">No vendors found matching your criteria.</p>
               )}
             </div>
           </ScrollArea>
         </div>
 
-        <div className="flex-1 bg-gray-100 flex items-center justify-center">
+        {/* <div className="hidden md:flex flex-1 bg-gray-100 items-center justify-center">
           {displayVendors.length > 0 ? (
             <Map
               vendors={displayVendors}
@@ -260,7 +382,7 @@ export default function Home() {
               <p className="text-gray-400 text-sm mt-2">Try adjusting your search filters.</p>
             </div>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );
