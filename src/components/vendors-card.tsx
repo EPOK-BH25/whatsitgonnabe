@@ -5,6 +5,7 @@ import { Badge } from "./ui/badge";
 import { cn } from "@/lib/utils";
 
 interface VendorCardProps {
+  id?: string;
   businessName: string;
   tags: string[];
   description?: string;
@@ -18,6 +19,7 @@ interface VendorCardProps {
 }
 
 export function VendorCard({
+  id,
   businessName,
   tags,
   description,
@@ -41,10 +43,10 @@ export function VendorCard({
     >
       <div className="flex justify-between items-start">
         <Link
-          href={links[0] ?? "#"}
+          href={id ? `/vendor/${id}` : links[0] ?? "#"}
           onClick={(e) => e.stopPropagation()}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={id ? undefined : "_blank"}
+          rel={id ? undefined : "noopener noreferrer"}
           className="text-xl font-semibold text-black hover:underline"
         >
           {businessName}

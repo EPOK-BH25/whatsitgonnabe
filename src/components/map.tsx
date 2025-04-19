@@ -20,6 +20,7 @@ const redIcon = new L.Icon({
 });
 
 type Vendor = {
+  id: string;
   businessName: string;
   tags: string[];
   description: string;
@@ -62,37 +63,62 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
   const [vendorLocations, setVendorLocations] = useState<
     { lat: number; lon: number; vendor: Vendor }[]
   >([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCoordinates = async () => {
+      setLoading(true);
       const results: { lat: number; lon: number; vendor: Vendor }[] = [];
 
       for (const vendor of vendors) {
-        const query = `${vendor.city}, ${vendor.state}`;
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
-        );
-        const data = await response.json();
-        if (data.length > 0) {
-          const { lat, lon } = data[0];
-          results.push({
-            lat: parseFloat(lat),
-            lon: parseFloat(lon),
-            vendor,
-          });
+        try {
+          const query = `${vendor.city}, ${vendor.state}`;
+          console.log(`Fetching coordinates for: ${query}`);
+          
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`
+          );
+          
+          if (!response.ok) {
+            console.error(`Error fetching coordinates for ${query}: ${response.statusText}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          
+          if (data.length > 0) {
+            const { lat, lon } = data[0];
+            results.push({
+              lat: parseFloat(lat),
+              lon: parseFloat(lon),
+              vendor,
+            });
+            console.log(`Found coordinates for ${query}: ${lat}, ${lon}`);
+          } else {
+            console.warn(`No coordinates found for ${query}`);
+          }
+        } catch (error) {
+          console.error(`Error processing vendor ${vendor.businessName}:`, error);
         }
       }
 
+      console.log(`Total vendor locations found: ${results.length}`);
       setVendorLocations(results);
+      setLoading(false);
     };
 
-    fetchCoordinates();
+    if (vendors.length > 0) {
+      fetchCoordinates();
+    } else {
+      setVendorLocations([]);
+      setLoading(false);
+    }
   }, [vendors]);
 
-  const defaultCenter: [number, number] = [37.0902, -95.7129]; // USA center
+  const defaultCenter: [number, number] = [34.0522, -118.2437]; // Los Angeles center
 
   return (
-    <MapContainer center={defaultCenter} zoom={4} style={{ height: '100%', width: '100%' }}>
+    <MapContainer center={defaultCenter} zoom={10} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -102,7 +128,7 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
 
       {userLocation && (
         <Marker
-          position={userLocation}
+          position={[userLocation.lat, userLocation.lon]}
           icon={redIcon}
           eventHandlers={{
             mouseover: (e) => e.target.openPopup(), // Show on hover
@@ -115,24 +141,30 @@ export default function Map({ vendors, userLocation, searchQuery }: Props) {
         </Marker>
       )}
 
-      {vendorLocations.map(({ lat, lon, vendor }, i) => (
-        <Marker
-          key={i}
-          position={[lat, lon]}
-          eventHandlers={{
-            mouseover: (e) => e.target.openPopup(), // Show on hover
-            mouseout: (e) => e.target.closePopup(), // Hide on mouse out
-          }}
-        >
-          <Popup>
-            <strong>{vendor.businessName}</strong>
-            <br />
-            {vendor.city}, {vendor.state}
-            <br />
-            {vendor.description}
-          </Popup>
-        </Marker>
-      ))}
+      {loading ? (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-2 rounded shadow">
+          Loading vendor locations...
+        </div>
+      ) : (
+        vendorLocations.map(({ lat, lon, vendor }, i) => (
+          <Marker
+            key={`${vendor.id}-${i}`}
+            position={[lat, lon]}
+            eventHandlers={{
+              mouseover: (e) => e.target.openPopup(), // Show on hover
+              mouseout: (e) => e.target.closePopup(), // Hide on mouse out
+            }}
+          >
+            <Popup>
+              <strong>{vendor.businessName}</strong>
+              <br />
+              {vendor.city}, {vendor.state}
+              <br />
+              {vendor.description}
+            </Popup>
+          </Marker>
+        ))
+      )}
     </MapContainer>
   );
 }
